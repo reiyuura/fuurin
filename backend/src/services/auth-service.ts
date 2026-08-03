@@ -88,8 +88,8 @@ export function createAuthService(deps: AuthServiceDeps) {
       return err('unauthorized', 'Refresh token tidak valid atau kedaluwarsa.')
     }
 
-    const tokenHash = hashToken(claims.sid)
-    const session = await repo.findSession(tokenHash)
+    const oldTokenHash = hashToken(claims.sid)
+    const session = await repo.findSession(oldTokenHash)
     if (!session.ok) return session
     if (!session.value || session.value.expiresAt < new Date()) {
       return err('unauthorized', 'Sesi tidak ditemukan atau telah berakhir.')
@@ -99,10 +99,23 @@ export function createAuthService(deps: AuthServiceDeps) {
     if (!user.ok) return user
     if (!user.value) return err('unauthorized', 'Pengguna tidak ditemukan.')
 
+    // Rotation: delete old session, create new one with fresh sid.
+    await repo.deleteSession(oldTokenHash)
+
+    const newSessionId = crypto.randomUUID()
+    const newTokenHash = hashToken(newSessionId)
+    const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_SEC * 1000)
+    const newSession = await repo.createSession({
+      userId: claims.sub,
+      tokenHash: newTokenHash,
+      expiresAt,
+    })
+    if (!newSession.ok) return newSession
+
     const pair = issueTokenPair(env, {
       userId: user.value.id,
       role: user.value.role,
-      sessionId: session.value.id,
+      sessionId: newSessionId,
     })
 
     return ok({

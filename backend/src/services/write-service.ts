@@ -42,10 +42,20 @@ export type WriteServiceDeps = {
    * service never touches Prisma.
    */
   resolveDefaultOwner: () => Promise<string>
+  /** Audit log — cross-cutting, best-effort (never blocks the caller). */
+  audit: {
+    log(entry: {
+      actorId: string
+      action: 'create' | 'update' | 'delete'
+      entity: 'Album' | 'Photo' | 'Timeline' | 'Member'
+      entityId: string
+      metadata?: Record<string, unknown>
+    }): Promise<Result<void>>
+  }
 }
 
 export function createWriteService(deps: WriteServiceDeps) {
-  const { readAlbums, albums, media, timeline, members, resolveDefaultOwner } = deps
+  const { readAlbums, albums, media, timeline, members, resolveDefaultOwner, audit } = deps
 
   /**
    * Strip undefined values from L10n objects so partial payloads
@@ -66,8 +76,10 @@ export function createWriteService(deps: WriteServiceDeps) {
 
   /* ── Album ─────────────────────────────────────────────────── */
 
-  async function createAlbum(input: Omit<CreateAlbumWriteInput, 'ownerId'>): Promise<Result<Album>> {
-    // Slug uniqueness — application pre-check + DB unique constraint.
+  async function createAlbum(
+    input: Omit<CreateAlbumWriteInput, 'ownerId'>,
+    actorId?: string,
+  ): Promise<Result<Album>> {
     const existing = await readAlbums.getAlbum(input.slug)
     if (!existing.ok) return existing
     if (existing.value) {
@@ -79,68 +91,92 @@ export function createWriteService(deps: WriteServiceDeps) {
     } catch {
       return err('transport', 'Gagal menentukan pemilik album (seed user tidak ada).')
     }
-    return albums.createAlbum({ ...input, title: stripUndefined(input.title), period: stripUndefined(input.period), ownerId })
+    const result = await albums.createAlbum({ ...input, title: stripUndefined(input.title), period: stripUndefined(input.period), ownerId })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Album', entityId: input.slug })
+    }
+    return result
   }
 
-  async function updateAlbum(slug: string, patch: UpdateAlbumWriteInput): Promise<Result<Album>> {
+  async function updateAlbum(slug: string, patch: UpdateAlbumWriteInput, actorId?: string): Promise<Result<Album>> {
     const existing = await readAlbums.getAlbum(slug)
     if (!existing.ok) return existing
     if (!existing.value) return err('not_found', 'Album tidak ditemukan.', { slug })
-    return albums.updateAlbum(slug, {
+    const result = await albums.updateAlbum(slug, {
       ...patch,
       ...(patch.title !== undefined ? { title: stripUndefined(patch.title) as never } : {}),
       ...(patch.period !== undefined ? { period: stripUndefined(patch.period) as never } : {}),
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'update', entity: 'Album', entityId: slug })
+    }
+    return result
   }
 
-  async function deleteAlbum(slug: string): Promise<Result<void>> {
+  async function deleteAlbum(slug: string, actorId?: string): Promise<Result<void>> {
     const existing = await readAlbums.getAlbum(slug)
     if (!existing.ok) return existing
     if (!existing.value) return err('not_found', 'Album tidak ditemukan.', { slug })
-    return albums.deleteAlbum(slug)
+    const result = await albums.deleteAlbum(slug)
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'delete', entity: 'Album', entityId: slug })
+    }
+    return result
   }
 
   /* ── Media ─────────────────────────────────────────────────── */
 
-  async function createMedia(input: CreateMediaWriteInput): Promise<Result<MediaItem>> {
-    // Media requires an existing album — FK layer last, pre-check first.
+  async function createMedia(input: CreateMediaWriteInput, actorId?: string): Promise<Result<MediaItem>> {
     const album = await readAlbums.getAlbum(input.albumSlug)
     if (!album.ok) return album
     if (!album.value) {
       return err('not_found', 'Album tidak ditemukan.', { albumSlug: input.albumSlug })
     }
-    return media.createPhoto({
+    const result = await media.createPhoto({
       ...input,
       caption: stripUndefined(input.caption),
       ago: stripUndefined(input.ago ?? {}) as never,
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Photo', entityId: `${input.albumSlug}:${input.idx}` })
+    }
+    return result
   }
 
   async function updateMedia(
     albumSlug: string,
     idx: number,
     patch: UpdateMediaWriteInput,
+    actorId?: string,
   ): Promise<Result<MediaItem>> {
     const album = await readAlbums.getAlbum(albumSlug)
     if (!album.ok) return album
     if (!album.value) return err('not_found', 'Album tidak ditemukan.', { albumSlug })
-    return media.updatePhoto(albumSlug, idx, {
+    const result = await media.updatePhoto(albumSlug, idx, {
       ...patch,
       ...(patch.caption !== undefined ? { caption: stripUndefined(patch.caption) as never } : {}),
       ...(patch.ago !== undefined ? { ago: stripUndefined(patch.ago) as never } : {}),
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'update', entity: 'Photo', entityId: `${albumSlug}:${idx}` })
+    }
+    return result
   }
 
-  async function deleteMedia(albumSlug: string, idx: number): Promise<Result<void>> {
+  async function deleteMedia(albumSlug: string, idx: number, actorId?: string): Promise<Result<void>> {
     const album = await readAlbums.getAlbum(albumSlug)
     if (!album.ok) return album
     if (!album.value) return err('not_found', 'Album tidak ditemukan.', { albumSlug })
-    return media.deletePhoto(albumSlug, idx)
+    const result = await media.deletePhoto(albumSlug, idx)
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'delete', entity: 'Photo', entityId: `${albumSlug}:${idx}` })
+    }
+    return result
   }
 
   /* ── Timeline ──────────────────────────────────────────────── */
 
-  async function createTimeline(input: CreateTimelineWriteInput): Promise<Result<TimelineEntry>> {
+  async function createTimeline(input: CreateTimelineWriteInput, actorId?: string): Promise<Result<TimelineEntry>> {
     if (input.albumId) {
       const album = await readAlbums.getAlbum(input.albumId)
       if (!album.ok) return album
@@ -148,14 +184,18 @@ export function createWriteService(deps: WriteServiceDeps) {
         return err('not_found', 'Album referensi timeline tidak ditemukan.', { albumId: input.albumId })
       }
     }
-    return timeline.createTimeline({
+    const result = await timeline.createTimeline({
       ...input,
       title: stripUndefined(input.title),
       description: stripUndefined(input.description),
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Timeline', entityId: '(new)' })
+    }
+    return result
   }
 
-  async function updateTimeline(id: string, patch: UpdateTimelineWriteInput): Promise<Result<TimelineEntry>> {
+  async function updateTimeline(id: string, patch: UpdateTimelineWriteInput, actorId?: string): Promise<Result<TimelineEntry>> {
     if (patch.albumId) {
       const album = await readAlbums.getAlbum(patch.albumId)
       if (!album.ok) return album
@@ -163,37 +203,57 @@ export function createWriteService(deps: WriteServiceDeps) {
         return err('not_found', 'Album referensi timeline tidak ditemukan.', { albumId: patch.albumId })
       }
     }
-    return timeline.updateTimeline(id, {
+    const result = await timeline.updateTimeline(id, {
       ...patch,
       ...(patch.title !== undefined ? { title: stripUndefined(patch.title) as never } : {}),
       ...(patch.description !== undefined ? { description: stripUndefined(patch.description) as never } : {}),
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'update', entity: 'Timeline', entityId: id })
+    }
+    return result
   }
 
-  async function deleteTimeline(id: string): Promise<Result<void>> {
-    return timeline.deleteTimeline(id)
+  async function deleteTimeline(id: string, actorId?: string): Promise<Result<void>> {
+    const result = await timeline.deleteTimeline(id)
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'delete', entity: 'Timeline', entityId: id })
+    }
+    return result
   }
 
   /* ── Member ────────────────────────────────────────────────── */
 
-  async function createMember(input: CreateMemberWriteInput): Promise<Result<Member>> {
-    return members.createMember({
+  async function createMember(input: CreateMemberWriteInput, actorId?: string): Promise<Result<Member>> {
+    const result = await members.createMember({
       ...input,
       name: stripUndefined(input.name),
       role: stripUndefined(input.role ?? {}) as never,
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Member', entityId: '(new)' })
+    }
+    return result
   }
 
-  async function updateMember(id: string, patch: UpdateMemberWriteInput): Promise<Result<Member>> {
-    return members.updateMember(id, {
+  async function updateMember(id: string, patch: UpdateMemberWriteInput, actorId?: string): Promise<Result<Member>> {
+    const result = await members.updateMember(id, {
       ...patch,
       ...(patch.name !== undefined ? { name: stripUndefined(patch.name) as never } : {}),
       ...(patch.role !== undefined ? { role: stripUndefined(patch.role) as never } : {}),
     })
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'update', entity: 'Member', entityId: id })
+    }
+    return result
   }
 
-  async function deleteMember(id: string): Promise<Result<void>> {
-    return members.deleteMember(id)
+  async function deleteMember(id: string, actorId?: string): Promise<Result<void>> {
+    const result = await members.deleteMember(id)
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'delete', entity: 'Member', entityId: id })
+    }
+    return result
   }
 
   return {

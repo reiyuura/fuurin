@@ -12,32 +12,51 @@ import { createPrismaRepositories } from '../src/repositories/registry'
 import { getTestPrisma, truncateAll, disconnectTestPrisma } from './helpers/setup-db'
 import { seedAlbum, seedOwner, seedPhotos } from './helpers/seed-data'
 import type { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+import { AuthRepository } from '../src/auth/auth-repository'
+import { BcryptPasswordHasher } from '../src/auth/password-hasher'
+import { createAuthService } from '../src/services/auth-service'
 
 const ENV = {
-  NODE_ENV: 'test',
-  PORT: '4003',
-  HOST: '127.0.0.1',
+  NODE_ENV: 'test' as const, PORT: '4003', HOST: '127.0.0.1',
   DATABASE_URL: 'postgresql://fuurin:***@127.0.0.1:5432/fuurin_test',
-  LOG_LEVEL: 'silent',
-  STORAGE_DRIVER: 'local',
-  STORAGE_LOCAL_ROOT: './storage/uploads',
-  API_BASE_PATH: '/api/v1',
-  API_VERSION: 'v1',
+  LOG_LEVEL: 'silent' as const, STORAGE_DRIVER: 'local' as const, STORAGE_LOCAL_ROOT: './storage/uploads',
+  API_BASE_PATH: '/api/v1', API_VERSION: 'v1',
+  JWT_SECRET: 'test-secret-at-least-32-characters-long-xx',
+  JWT_ACCESS_TTL_SEC: 900, JWT_REFRESH_TTL_SEC: 604800,
+  JWT_REFRESH_COOKIE: 'fuurin_rt', UPLOAD_MAX_BYTES: 10_000_000,
 }
 
 let prisma: PrismaClient
 let app: FastifyInstance
+let adminToken: string
 
 beforeAll(async () => {
   prisma = await getTestPrisma()
   const env = loadEnvironment(ENV)
   const repos = createPrismaRepositories(prisma)
-  const built = await buildApp(env, { logger: false }, { repositories: repos })
+  const auth = createAuthService({
+    env,
+    repo: new AuthRepository(prisma),
+    hasher: new BcryptPasswordHasher(),
+  })
+  const built = await buildApp(env, { logger: false }, { repositories: repos, authService: auth })
   app = built.app
 })
 
 beforeEach(async () => {
   await truncateAll(prisma)
+  // Seed admin user + login for write tests.
+  const pw = await bcrypt.hash('pass', 10)
+  await prisma.user.create({
+    data: { email: 'admin@test.local', name: 'Admin', role: 'admin', avatar: '', passwordHash: pw },
+  })
+  const loginRes = await app.inject({
+    method: 'POST', url: '/api/v1/auth/login',
+    headers: { 'content-type': 'application/json' },
+    payload: JSON.stringify({ email: 'admin@test.local', password: 'pass' }),
+  })
+  adminToken = loginRes.json().accessToken
 })
 
 afterAll(async () => {
@@ -47,9 +66,11 @@ afterAll(async () => {
 
 async function req(method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown) {
   return app.inject({
-    method,
-    url: `/api/v1${path}`,
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    method, url: `/api/v1${path}`,
+    headers: {
+      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+      authorization: `Bearer ${adminToken}`,
+    },
     payload: body !== undefined ? JSON.stringify(body) : undefined,
   })
 }
@@ -94,12 +115,6 @@ describe('POST /albums', () => {
     await seedOwner(prisma)
     const res = await req('POST', '/albums', { slug: 'x-1', title: { en: 'X' } })
     expect(res.statusCode).toBe(400)
-  })
-
-  it('409 when no seeded user (owner resolution fails as transport)', async () => {
-    // No user row → create fails before hitting the FK (service error).
-    const res = await req('POST', '/albums', albumBody)
-    expect([500, 409]).toContain(res.statusCode)
   })
 })
 

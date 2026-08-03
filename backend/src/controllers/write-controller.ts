@@ -1,144 +1,136 @@
 /**
  * Write controller — request parsing + response shaping only.
- * Business logic stays in WriteService.
+ * Sprint 20B: reads `request.user` to pass as `actorId` for audit.
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { WriteService } from '../services/write-service'
+import type { AuthedRequest } from '../plugins/auth-guard'
 import { ApiError } from '../shared/errors'
 import { parseOrThrow } from './zod-parse'
 import {
-  albumSlugParamSchema,
   createAlbumSchema,
-  createMediaSchema,
-  createMemberSchema,
-  createTimelineSchema,
-  mediaIdParamSchema,
-  memberIdParamSchema,
-  timelineIdParamSchema,
   updateAlbumSchema,
+  createMediaSchema,
   updateMediaSchema,
-  updateMemberSchema,
+  createTimelineSchema,
   updateTimelineSchema,
+  createMemberSchema,
+  updateMemberSchema,
+  albumSlugParamSchema,
+  mediaIdParamSchema,
+  timelineIdParamSchema,
+  memberIdParamSchema,
 } from '../schemas/write-schemas'
 
-function body<T>(request: FastifyRequest): T {
-  return (request.body ?? {}) as T
-}
-
 export function createWriteController(service: WriteService) {
-  /* ── Album ─────────────────────────────────────────────────── */
+  /** Read actor from the authenticated request. */
+  function actorId(req: FastifyRequest): string | undefined {
+    return (req as AuthedRequest).user?.id
+  }
 
   return {
+    /* ── Albums ─────────────────────────────────────────────── */
     async createAlbum(request: FastifyRequest, reply: FastifyReply) {
-      const input = parseOrThrow(createAlbumSchema, body(request), 'payload album')
-      const result = await service.createAlbum(input)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const input = parseOrThrow(createAlbumSchema, request.body, 'payload album')
+      const result = await service.createAlbum(input, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.status(201).send(result.value)
     },
 
     async updateAlbum(request: FastifyRequest, reply: FastifyReply) {
-      const { slug } = parseOrThrow(albumSlugParamSchema, request.params)
-      const patch = parseOrThrow(updateAlbumSchema, body(request), 'payload album')
-      const result = await service.updateAlbum(slug, patch)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { slug } = parseOrThrow(albumSlugParamSchema, request.params, 'parameter slug')
+      const patch = parseOrThrow(updateAlbumSchema, request.body, 'payload update album')
+      const result = await service.updateAlbum(slug, patch, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send(result.value)
     },
 
     async deleteAlbum(request: FastifyRequest, reply: FastifyReply) {
-      const { slug } = parseOrThrow(albumSlugParamSchema, request.params)
-      const result = await service.deleteAlbum(slug)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { slug } = parseOrThrow(albumSlugParamSchema, request.params, 'parameter slug')
+      const result = await service.deleteAlbum(slug, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send({ slug, deleted: true })
     },
 
-    /* ── Media ───────────────────────────────────────────────── */
-
+    /* ── Media ──────────────────────────────────────────────── */
     async createMedia(request: FastifyRequest, reply: FastifyReply) {
-      const input = parseOrThrow(createMediaSchema, body(request), 'payload media')
-      const result = await service.createMedia(input)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const input = parseOrThrow(createMediaSchema, request.body, 'payload media')
+      const result = await service.createMedia(input, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.status(201).send(result.value)
     },
 
     async updateMedia(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(mediaIdParamSchema, request.params)
-      const parsed = parseMediaId(id)
-      if (!parsed) throw new ApiError('validation', 'id media tidak valid.', { id })
-      const patch = parseOrThrow(updateMediaSchema, body(request), 'payload media')
-      const result = await service.updateMedia(parsed.albumSlug, parsed.idx, patch)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(mediaIdParamSchema, request.params, 'parameter media id')
+      const patch = parseOrThrow(updateMediaSchema, request.body, 'payload update media')
+      // Path id is "slug:idx" — parse it.
+      const colon = id.lastIndexOf(':')
+      if (colon < 0) throw new ApiError('validation', 'ID media tidak valid (format slug:idx).')
+      const albumSlug = id.slice(0, colon)
+      const idx = Number(id.slice(colon + 1))
+      if (!Number.isInteger(idx)) throw new ApiError('validation', 'ID media tidak valid (idx bukan angka).')
+      const result = await service.updateMedia(albumSlug, idx, patch, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send(result.value)
     },
 
     async deleteMedia(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(mediaIdParamSchema, request.params)
-      const parsed = parseMediaId(id)
-      if (!parsed) throw new ApiError('validation', 'id media tidak valid.', { id })
-      const result = await service.deleteMedia(parsed.albumSlug, parsed.idx)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(mediaIdParamSchema, request.params, 'parameter media id')
+      const colon = id.lastIndexOf(':')
+      if (colon < 0) throw new ApiError('validation', 'ID media tidak valid (format slug:idx).')
+      const albumSlug = id.slice(0, colon)
+      const idx = Number(id.slice(colon + 1))
+      if (!Number.isInteger(idx)) throw new ApiError('validation', 'ID media tidak valid (idx bukan angka).')
+      const result = await service.deleteMedia(albumSlug, idx, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send({ id, deleted: true })
     },
 
-    /* ── Timeline ────────────────────────────────────────────── */
-
+    /* ── Timeline ───────────────────────────────────────────── */
     async createTimeline(request: FastifyRequest, reply: FastifyReply) {
-      const input = parseOrThrow(createTimelineSchema, body(request), 'payload timeline')
-      const result = await service.createTimeline(input)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const input = parseOrThrow(createTimelineSchema, request.body, 'payload timeline')
+      const result = await service.createTimeline(input, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.status(201).send(result.value)
     },
 
     async updateTimeline(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(timelineIdParamSchema, request.params)
-      const patch = parseOrThrow(updateTimelineSchema, body(request), 'payload timeline')
-      const result = await service.updateTimeline(id, patch)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(timelineIdParamSchema, request.params, 'parameter timeline id')
+      const patch = parseOrThrow(updateTimelineSchema, request.body, 'payload update timeline')
+      const result = await service.updateTimeline(id, patch, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send(result.value)
     },
 
     async deleteTimeline(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(timelineIdParamSchema, request.params)
-      const result = await service.deleteTimeline(id)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(timelineIdParamSchema, request.params, 'parameter timeline id')
+      const result = await service.deleteTimeline(id, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send({ id, deleted: true })
     },
 
-    /* ── Member ──────────────────────────────────────────────── */
-
+    /* ── Members ────────────────────────────────────────────── */
     async createMember(request: FastifyRequest, reply: FastifyReply) {
-      const input = parseOrThrow(createMemberSchema, body(request), 'payload member')
-      const result = await service.createMember(input)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const input = parseOrThrow(createMemberSchema, request.body, 'payload member')
+      const result = await service.createMember(input, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.status(201).send(result.value)
     },
 
     async updateMember(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(memberIdParamSchema, request.params)
-      const patch = parseOrThrow(updateMemberSchema, body(request), 'payload member')
-      const result = await service.updateMember(id, patch)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(memberIdParamSchema, request.params, 'parameter member id')
+      const patch = parseOrThrow(updateMemberSchema, request.body, 'payload update member')
+      const result = await service.updateMember(id, patch, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send(result.value)
     },
 
     async deleteMember(request: FastifyRequest, reply: FastifyReply) {
-      const { id } = parseOrThrow(memberIdParamSchema, request.params)
-      const result = await service.deleteMember(id)
-      if (!result.ok) throw mapError(result.error.code, result.error.message)
+      const { id } = parseOrThrow(memberIdParamSchema, request.params, 'parameter member id')
+      const result = await service.deleteMember(id, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send({ id, deleted: true })
     },
   }
-}
-
-function parseMediaId(id: string): { albumSlug: string; idx: number } | null {
-  const lastColon = id.lastIndexOf(':')
-  if (lastColon <= 0 || lastColon === id.length - 1) return null
-  const albumSlug = id.slice(0, lastColon)
-  const idx = Number(id.slice(lastColon + 1))
-  if (!Number.isInteger(idx) || idx < 0) return null
-  return { albumSlug, idx }
-}
-
-function mapError(code: string, message: string): ApiError {
-  return new ApiError(code as ApiError['code'], message)
 }

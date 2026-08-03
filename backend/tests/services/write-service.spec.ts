@@ -81,6 +81,7 @@ function makeSvc(opts: {
       resolveDefaultOwner: opts.ownerResolutionError
         ? async () => { throw new Error('no user') }
         : async () => opts.ownerId ?? 'owner-1',
+      audit: { log: async () => ok(undefined) },
     }),
   }
 }
