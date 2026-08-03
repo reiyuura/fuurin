@@ -1,0 +1,16 @@
+// Fuurin no Class — Prisma schema (Sprint 16 foundation).
+//
+// Sprint 16 ONLY defines the datasource + generator (client wiring).
+// The domain models + enum + relations land in Sprint 17 (Database:
+// Prisma/Migration/Seed). Keeping the schema's data section empty here
+// is intentional — no business entities are introduced before their
+// dedicated sprint.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

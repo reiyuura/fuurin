@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# env (real credentials never committed)
+.env
+.env.local
+.env.*.local
+
+# storage runtime dir (dev-created uploads)
+storage/uploads/
+
+# logs
+*.log
+logs/
+
+# tests
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
