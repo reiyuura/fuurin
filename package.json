@@ -1,17 +1,34 @@
 {
   "name": "fuurin-album",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "風鈴のクラス — Fuurin no Class. An open-source digital memory book for a class of Japanese language learners.",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "validate:env": "node scripts/validate-env.mjs",
+    "prebuild": "node scripts/validate-env.mjs",
     "build": "next build",
+    "prestart": "NODE_ENV=production node scripts/validate-env.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "audit:images": "node scripts/audit-images.mjs",
+    "audit:boundaries": "node scripts/audit-repository-boundaries.mjs",
+    "smoke:api": "tsx scripts/api-smoke.ts",
+    "verify": "node scripts/verify-production.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.3.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.43.0",
+    "lucide-react": "^1.27.0",
     "next": "16.2.12",
+    "radix-ui": "^1.6.7",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
+    "tsx": "^4.23.5",
     "typescript": "^5"
   }
 }
