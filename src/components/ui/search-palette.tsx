@@ -40,6 +40,7 @@ export function SearchPalette() {
   const { t } = useLocale()
   const router = useRouter()
   const results = useSearchResults()
+  const { searching } = useSearch()
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -113,7 +114,7 @@ export function SearchPalette() {
 
   if (!open) return null
 
-  const isEmpty = debouncedQuery.trim().length > 0 && options.length === 0
+  const isEmpty = debouncedQuery.trim().length > 0 && options.length === 0 && !searching
   const showHistory = debouncedQuery.trim().length === 0 && history.length > 0
   const showTags = debouncedQuery.trim().length === 0 && history.length === 0
 
@@ -213,6 +214,18 @@ export function SearchPalette() {
                   </Tag>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Loading state — API-backed search in flight */}
+          {searching && options.length === 0 && debouncedQuery.trim().length > 0 && (
+            <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" aria-busy="true">
+              <div className="grid size-14 place-items-center rounded-full bg-primary-subtle/60 text-primary">
+                <Search size={22} aria-hidden="true" strokeWidth={1.5} className="animate-pulse" />
+              </div>
+              <p className="font-jp text-sm font-semibold text-foreground-strong">
+                Mencari…
+              </p>
             </div>
           )}
 

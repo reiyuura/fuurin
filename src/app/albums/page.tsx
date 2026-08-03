@@ -5,8 +5,27 @@ import { TabBar } from '@/components/layout/tab-bar'
 import { PageHeader } from '@/components/ui/page-header'
 import { AlbumGrid } from '@/components/ui/album-grid'
 import { AlbumsExplorer } from '@/components/albums/albums-explorer'
+import { repositories } from '@/lib/repositories/repository-registry'
 
-export default function AlbumsPage() {
+export default async function AlbumsPage() {
+  // Albums list + media feed come from the repository (mock or API —
+  // chosen by NEXT_PUBLIC_API_MODE). Tags per album are derived from
+  // the media rows so the explorer never touches mock datasets.
+  const [albumsRes, mediaRes] = await Promise.all([
+    repositories.albums.listAlbums(),
+    repositories.media.list(),
+  ])
+  const albums = albumsRes.ok ? albumsRes.value : []
+  const media = mediaRes.ok ? mediaRes.value : []
+
+  const tagsByAlbum: Record<string, string[]> = {}
+  for (const item of media) {
+    if (!tagsByAlbum[item.albumSlug]) tagsByAlbum[item.albumSlug] = []
+    for (const tag of item.tags) {
+      if (!tagsByAlbum[item.albumSlug]!.includes(tag)) tagsByAlbum[item.albumSlug]!.push(tag)
+    }
+  }
+
   return (
     <>
       <Header active="/albums" />
@@ -20,7 +39,7 @@ export default function AlbumsPage() {
           {/* AlbumGrid's isLoading state reuses the skeleton rail —
               no duplicated fallback markup here. */}
           <Suspense fallback={<AlbumGrid albums={[]} isLoading />}>
-            <AlbumsExplorer />
+            <AlbumsExplorer albums={albums} tagsByAlbum={tagsByAlbum} />
           </Suspense>
         </section>
       </main>

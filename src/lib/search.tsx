@@ -1,10 +1,10 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { ALBUMS, MEMBERS, RECENT_PHOTOS, TIMELINE, type Album, type Member, type Photo, type TimelineEntry } from '@/lib/data'
-import { useLocale, type Locale } from '@/lib/i18n'
+import { useLocale } from '@/lib/i18n'
 import { searchAll, type SearchResults } from '@/lib/search-utils'
 import { addHistory, clearHistory, loadHistory, removeHistory } from '@/lib/search-history'
+import { repositories } from '@/lib/repositories/repository-registry'
 
 type SearchCtxValue = {
   open: boolean
@@ -14,6 +14,9 @@ type SearchCtxValue = {
   setInputValue: (v: string) => void
   /** Debounced query — drives search execution. */
   debouncedQuery: string
+  /** True while an API-backed search is in flight. */
+  searching: boolean
+  setSearching: (v: boolean) => void
   /** Search history (newest first, max 10). */
   history: string[]
   pushHistory: (q: string) => void
@@ -27,6 +30,8 @@ const SearchCtx = createContext<SearchCtxValue>({
   inputValue: '',
   setInputValue: () => {},
   debouncedQuery: '',
+  searching: false,
+  setSearching: () => {},
   history: [],
   pushHistory: () => {},
   forgetHistory: () => {},
@@ -35,11 +40,20 @@ const SearchCtx = createContext<SearchCtxValue>({
 
 const DEBOUNCE_MS = 250
 
+const EMPTY_RESULTS: SearchResults = {
+  albums: [],
+  photos: [],
+  members: [],
+  timeline: [],
+  total: 0,
+}
+
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [history, setHistory] = useState<string[]>([])
+  const [searching, setSearching] = useState(false)
 
   // Load history once (client-only, safe).
   useEffect(() => {
@@ -58,6 +72,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     if (!open) {
       setInputValue('')
       setDebouncedQuery('')
+      setSearching(false)
     }
   }, [open])
 
@@ -103,6 +118,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         inputValue,
         setInputValue,
         debouncedQuery,
+        searching,
+        setSearching,
         history,
         pushHistory,
         forgetHistory,
@@ -118,24 +135,34 @@ export function useSearch() {
   return useContext(SearchCtx)
 }
 
-/* ── Dataset-backed search execution ───────────────────────────── */
+/* ── Search execution — repository-backed ─────────────────────── */
 
 export function useSearchResults(): SearchResults {
-  const { debouncedQuery } = useSearch()
+  const { debouncedQuery, searching, setSearching } = useSearch()
   const { locale } = useLocale()
+  const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
 
-  return useMemo(
-    () =>
-      searchAll(
-        {
-          albums: ALBUMS as Album[],
-          photos: RECENT_PHOTOS as Photo[],
-          members: MEMBERS as Member[],
-          timeline: TIMELINE as TimelineEntry[],
-        },
-        debouncedQuery,
-        locale as Locale,
-      ),
-    [debouncedQuery, locale],
-  )
+  useEffect(() => {
+    const q = debouncedQuery.trim()
+    if (!q) {
+      setResults(EMPTY_RESULTS)
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    let cancelled = false
+    repositories.search.searchAll(q, locale).then((res) => {
+      if (cancelled) return
+      setResults(res.ok ? res.value : EMPTY_RESULTS)
+      setSearching(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedQuery, locale, setSearching])
+
+  return results
 }
+
+// Keep the pure helper import available for consumers that only need it.
+export { searchAll }

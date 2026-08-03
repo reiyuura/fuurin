@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useLocale } from '@/lib/i18n'
-import { ALBUMS, getAlbumTags, pick, type AlbumCategory } from '@/lib/data'
+import { pick, type Album, type AlbumCategory } from '@/lib/data'
 import {
   buildCategoryOptions,
   filterAlbums,
@@ -51,7 +51,13 @@ const MONTHS = [
 
 const YEARS = ['2025', '2026']
 
-export function AlbumsExplorer() {
+export function AlbumsExplorer({
+  albums,
+  tagsByAlbum,
+}: {
+  albums: Album[]
+  tagsByAlbum: Record<string, string[]>
+}) {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -109,19 +115,13 @@ export function AlbumsExplorer() {
   /* ── Derive options (presentation-only, from data) ────────── */
   const categories = useMemo(
     () =>
-      buildCategoryOptions(ALBUMS).map((opt) => ({
+      buildCategoryOptions(albums).map((opt) => ({
         value: opt.value,
         label:
           opt.value === 'all' ? 'All' : CATEGORY_LABELS[opt.value as AlbumCategory],
         count: opt.count,
       })),
-    [],
-  )
-
-  /* Tags per album — derived in the data layer, never in the UI. */
-  const tagsByAlbum = useMemo(
-    () => Object.fromEntries(ALBUMS.map((a) => [a.slug, getAlbumTags(a.slug)])),
-    [],
+    [albums],
   )
 
   /* All tags present across albums — for the tag filter chips. */
@@ -135,10 +135,10 @@ export function AlbumsExplorer() {
   const filtered = useMemo(
     () =>
       sortAlbums(
-        filterAlbums(ALBUMS, { query, category, year, month, tag }, tagsByAlbum),
+        filterAlbums(albums, { query, category, year, month, tag }, tagsByAlbum),
         sort,
       ),
-    [query, category, year, month, tag, sort, tagsByAlbum],
+    [query, category, year, month, tag, sort, tagsByAlbum, albums],
   )
 
   /* ── Presentation-ready items for the grid ────────────────── */

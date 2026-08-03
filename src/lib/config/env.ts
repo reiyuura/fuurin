@@ -22,8 +22,26 @@ export class EnvironmentValidationError extends Error {
 
 let cached: RuntimeEnv | null = null
 
+/**
+ * NEXT_PUBLIC_* values must be referenced as LITERAL process.env reads
+ * so Next.js inlines them into the client bundle at build time.
+ * Dynamic access (process.env[name]) yields undefined on the client —
+ * which silently defaulted every runtime to mock mode.
+ */
+const NEXT_PUBLIC = {
+  NEXT_PUBLIC_API_MODE: process.env.NEXT_PUBLIC_API_MODE,
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  NEXT_PUBLIC_API_VERSION: process.env.NEXT_PUBLIC_API_VERSION,
+  NEXT_PUBLIC_API_TIMEOUT_MS: process.env.NEXT_PUBLIC_API_TIMEOUT_MS,
+  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+} as const
+
 function raw(name: string): string | undefined {
-  return typeof process !== 'undefined' ? process.env[name]?.trim() : undefined
+  if (typeof process === 'undefined') return undefined
+  if (name in NEXT_PUBLIC) {
+    return NEXT_PUBLIC[name as keyof typeof NEXT_PUBLIC]?.trim()
+  }
+  return process.env[name]?.trim()
 }
 
 function absoluteHttpUrl(value: string): URL | null {
