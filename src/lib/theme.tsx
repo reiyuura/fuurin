@@ -35,6 +35,3 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   return useContext(ThemeCtx)
 }
-
-/** Inline script: applies theme before first paint so there is no flash. */
-export const themeScript = `(function(){try{var t=localStorage.getItem('fuurin-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t==='dark'){document.documentElement.classList.add('dark')}var l=localStorage.getItem('fuurin-locale');if(l){document.documentElement.lang=l}}catch(e){}})();`

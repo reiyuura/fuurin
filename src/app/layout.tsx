@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google'
-import Script from 'next/script'
-import { ThemeProvider, themeScript } from '@/lib/theme'
+import { ThemeProvider } from '@/lib/theme'
+import { themeScript } from '@/lib/theme-script'
 import { LocaleProvider } from '@/lib/i18n'
 import { FavoritesProvider } from '@/lib/favorites'
 import { SearchProvider } from '@/lib/search'
@@ -79,7 +79,7 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${geistSans.variable} ${geistMono.variable} ${notoSerifJP.variable} ${notoSansJP.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col">
         <ThemeProvider>

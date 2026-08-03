@@ -5,5 +5,9 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.spec.ts'],
     globals: true,
+    // Spec files share the `fuurin_test` database and truncate it in
+    // beforeEach. Serialize files so truncations can't clobber rows a
+    // parallel file is asserting on.
+    fileParallelism: false,
   },
 })

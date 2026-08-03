@@ -1,10 +1,15 @@
-// Fuurin no Class — Prisma schema (Sprint 16 foundation).
+// Fuurin no Class — Prisma schema (Sprint 17 database foundation).
 //
-// Sprint 16 ONLY defines the datasource + generator (client wiring).
-// The domain models + enum + relations land in Sprint 17 (Database:
-// Prisma/Migration/Seed). Keeping the schema's data section empty here
-// is intentional — no business entities are introduced before their
-// dedicated sprint.
+// Refinements applied (vs. Sprint 16 foundation plan):
+// 1. Album.slug stays PK — frontend treats slug as identity.
+// 2. TimelineEntry uses nullable FK albumId + free-form categoryTag;
+//    wire `tag` computed by mapper as album.slug ?? categoryTag ?? 'kelas'.
+// 3. AlbumDraft.updatedAt is DateTime (@updatedAt); mapper returns
+//    `number` (ms epoch) to satisfy the frontend AlbumDraft contract.
+// 4. Photo + Media collapse into a single Photo table; MediaItem.id
+//    synthesized by the mapper from mediaId(albumSlug, idx).
+// 5. deletedAt: DateTime? on every main entity — schema only in
+//    Sprint 17; no repository logic filters on it yet.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,4 +18,192 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  editor
+  viewer
+}
+
+enum AlbumVisibility {
+  draft
+  published
+}
+
+enum Season {
+  spring
+  summer
+  autumn
+  winter
+}
+
+enum AlbumCategory {
+  school
+  festival
+  study
+  travel
+  graduation
+}
+
+enum MediaOrientation {
+  landscape
+  portrait
+}
+
+enum UploadStatus {
+  queued
+  uploading
+  completed
+  failed
+  cancelled
+}
+
+// ── Users & Sessions ─────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole
+  avatar       String
+  passwordHash String?
+  albums       Album[]  @relation("UserAlbums")
+  sessions     Session[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ── Albums ───────────────────────────────────────────────────────────
+
+model Album {
+  slug            String          @id
+  title           Json
+  period          Json
+  count           Int             @default(0)
+  views           Int             @default(0)
+  cover           String
+  date            String // YYYY-MM-DD
+  season          Season
+  category        AlbumCategory
+  visibility      AlbumVisibility @default(published)
+  ownerId         String
+  owner           User            @relation("UserAlbums", fields: [ownerId], references: [id], onDelete: Restrict)
+  publishedAt     DateTime?
+  photos          Photo[]
+  drafts          AlbumDraft[]    @relation("AlbumDraftAlbum")
+  timelineEntries TimelineEntry[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime? // soft-delete; Sprint 19+ opts in
+
+  @@index([ownerId])
+  @@index([date])
+  @@index([visibility])
+  @@index([category])
+}
+
+// ── Photos (canonical; also serves the media library view) ───────────
+
+model Photo {
+  id          String           @id @default(cuid())
+  albumSlug   String
+  album       Album            @relation(fields: [albumSlug], references: [slug], onDelete: Cascade)
+  idx         Int
+  src         String
+  caption     Json
+  ago         Json
+  tags        String[]
+  likes       Int              @default(0)
+  orientation MediaOrientation
+  date        String
+  createdAt   DateTime         @default(now())
+  deletedAt   DateTime?
+
+  @@unique([albumSlug, idx])
+  @@index([albumSlug, idx])
+  @@index([date])
+  @@index([albumSlug, date])
+}
+
+// ── Album drafts (editor) ────────────────────────────────────────────
+
+model AlbumDraft {
+  slug         String          @id
+  title        String
+  description  String
+  date         String
+  location     String
+  visibility   AlbumVisibility @default(draft)
+  coverMediaId String?
+  photoIds     String[]
+  updatedAt    DateTime        @updatedAt
+  albumId      String?
+  album        Album?          @relation("AlbumDraftAlbum", fields: [albumId], references: [slug], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  @@index([updatedAt])
+  @@index([albumId])
+}
+
+// ── Members ──────────────────────────────────────────────────────────
+
+model Member {
+  id        String    @id @default(cuid())
+  nameJa    String
+  name      Json
+  role      Json
+  avatar    String
+  deletedAt DateTime?
+
+  @@index([nameJa])
+}
+
+// ── Timeline ─────────────────────────────────────────────────────────
+
+model TimelineEntry {
+  id          String   @id @default(cuid())
+  date        String
+  title       Json
+  description Json
+  albumId     String?
+  album       Album?   @relation(fields: [albumId], references: [slug], onDelete: SetNull)
+  categoryTag String?
+  photo       String
+  deletedAt   DateTime?
+
+  @@index([date])
+  @@index([albumId])
+}
+
+// ── Upload records ───────────────────────────────────────────────────
+
+model UploadRecord {
+  id           String       @id @default(cuid())
+  fileName     String
+  sizeBytes    Int
+  mimeType     String
+  status       UploadStatus @default(queued)
+  progress     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+
+  @@index([createdAt])
+  @@index([status])
 }
