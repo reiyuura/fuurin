@@ -1,52 +1,26 @@
 /**
- * MockUploadRepository — persists upload records via ApiClient.
+ * MockUploadRepository — no-op upload for mock mode.
+ *
+ * Sprint 20C: returns a fake success so the UI's upload flows don't
+ * crash in mock mode. Real uploads go through FetchUploadRepository.
  */
 
-import type { ApiClient } from './api-client'
-import type { UploadDto } from '@/types/repository-dtos'
-import { toUpload } from './dto-mappers'
-import { err, ok } from './result-helpers'
-import type { RepositoryResult } from './result-helpers'
-import type { Upload, UploadInput, UploadRepository } from './upload-repository'
+import type { ApiClient, ApiResponse } from './api-client'
+import type { UploadRepository, UploadResult } from './upload-repository'
 
 export class MockUploadRepository implements UploadRepository {
   constructor(private readonly api: ApiClient) {}
 
-  async list(): Promise<RepositoryResult<Upload[]>> {
-    const res = await this.api.request<UploadDto[]>({ method: 'GET', path: '/uploads' })
-    if (!res.ok) return err<Upload[]>(res.error.code, res.error.message)
-    return ok(res.data.map(toUpload))
-  }
-
-  async record(input: UploadInput): Promise<RepositoryResult<Upload>> {
-    const body: UploadDto = {
-      ...input,
-      createdAt: new Date().toISOString(),
+  async upload(_file: File): Promise<ApiResponse<UploadResult>> {
+    return {
+      ok: true as const,
+      data: {
+        key: 'uploads/mock-placeholder.jpg',
+        url: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=256&q=85',
+        sizeBytes: 0,
+        contentType: 'image/jpeg',
+      },
+      meta: { status: 201, headers: {}, durationMs: 0, requestId: 'mock' },
     }
-    const res = await this.api.request<UploadDto>({
-      method: 'POST',
-      path: '/uploads',
-      body,
-    })
-    if (!res.ok) return err<Upload>(res.error.code, res.error.message)
-    return ok(toUpload(res.data))
-  }
-
-  async remove(id: string): Promise<RepositoryResult<void>> {
-    const res = await this.api.request<{ id: string }>({
-      method: 'DELETE',
-      path: `/uploads/${encodeURIComponent(id)}`,
-    })
-    if (!res.ok) return err<void>(res.error.code, res.error.message)
-    return ok(undefined)
-  }
-
-  async clear(): Promise<RepositoryResult<void>> {
-    const res = await this.api.request<{ cleared: boolean }>({
-      method: 'DELETE',
-      path: '/uploads',
-    })
-    if (!res.ok) return err<void>(res.error.code, res.error.message)
-    return ok(undefined)
   }
 }

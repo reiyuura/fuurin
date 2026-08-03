@@ -28,3 +28,6 @@ export function createStorageProvider(env: Env): StorageProvider {
 
 export type { StorageProvider, StorageObject, StoragePutInput, StorageListEntry }
 export { LocalStorageProvider }
+export { NullStorageProvider } from './null-storage-provider'
+export { S3StorageProvider } from './s3-storage-provider'
+export { R2StorageProvider } from './r2-storage-provider'

@@ -21,6 +21,7 @@ import type { ApiClient, ApiRequest, ApiResponse } from '../repositories/api-cli
 import type { ApiConfig, ApiResponseMeta } from '@/types/api-config'
 import type { SessionAccessor } from './session-accessor'
 import { injectAuthHeaders, sanitizeHeaders } from './auth-injector'
+import { setAccessToken } from '../repositories/auth-repository'
 import { withTimeout } from './timeout-controller'
 import { buildRequestInit, prebuildBody } from './request-builder'
 import { parseResponse } from './response-parser'
@@ -29,8 +30,12 @@ import { decideRetry } from './retry-policy'
 import { RequestDedupe } from './request-dedupe'
 import { devLogger, type Logger } from './logger'
 
+export type TokenRefresher = () => Promise<{ accessToken: string } | null>
+
 export type FetchApiClientDeps = {
   session: SessionAccessor
+  /** Optional: called on 401 to refresh the token and retry once. */
+  refreshToken?: TokenRefresher
   logger?: Logger
   dedupe?: RequestDedupe
   /** Injectable for tests. Defaults to setTimeout. */
@@ -59,9 +64,12 @@ export class FetchApiClient implements ApiClient {
   private readonly sleepFn: (ms: number) => Promise<void>
   private readonly fetcher: typeof fetch
 
+  private readonly refreshToken?: TokenRefresher
+
   constructor(config: ApiConfig, deps: FetchApiClientDeps) {
     this.config = config
     this.session = deps.session
+    this.refreshToken = deps.refreshToken
     this.logger = deps.logger ?? devLogger
     this.dedupe = deps.dedupe ?? new RequestDedupe()
     this.sleepFn = deps.sleep ?? sleep
@@ -106,7 +114,7 @@ export class FetchApiClient implements ApiClient {
       'X-Request-Id': requestId,
       ...this.config.defaultHeaders,
     }
-    const headers = await injectAuthHeaders(baseHeaders, this.session)
+    let headers = await injectAuthHeaders(baseHeaders, this.session)
     const prebuilt = prebuildBody(req.body)
     let attempt = 0
     let lastStatus: number | undefined
@@ -189,6 +197,22 @@ export class FetchApiClient implements ApiClient {
         status: meta.status,
         durationMs: meta.durationMs,
       })
+
+      // --- Sprint 20C: 401 refresh interceptor ---
+      if (meta.status === 401 && attempt === 0 && this.refreshToken) {
+        try {
+          const refreshed = await this.refreshToken()
+          if (refreshed) {
+            setAccessToken(refreshed.accessToken)
+            headers = await injectAuthHeaders(baseHeaders, this.session)
+            attempt += 1
+            this.logger.info({ layer: 'auth', requestId })
+            continue
+          }
+        } catch {
+          this.logger.warn({ layer: 'auth', requestId })
+        }
+      }
 
       if (!apiResponse!.ok) {
         const decision = decideRetry({

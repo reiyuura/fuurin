@@ -53,6 +53,23 @@ function createApiClient(): ApiClient {
   if (config.mode === 'fetch') {
     return new FetchApiClient(config, {
       session: sessionAccessor,
+      refreshToken: async () => {
+        // Use raw fetch to avoid recursion — the refresh endpoint
+        // must not go through the client (which would retry-on-401).
+        try {
+          const res = await fetch(`${config.baseUrl}${config.version}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: '{}',
+            credentials: 'include',
+          })
+          if (!res.ok) return null
+          const data = await res.json() as { accessToken: string }
+          return { accessToken: data.accessToken }
+        } catch {
+          return null
+        }
+      },
       logger: process.env.NODE_ENV === 'production' ? noopLogger : undefined,
     })
   }
