@@ -53,4 +53,16 @@ export class MockUserRepository implements UserRepository {
       })),
     )
   }
+
+  /* ── Write — unsupported in mock mode (Sprint 19 parity). */
+
+  async createMember(): Promise<RepositoryResult<Member>> {
+    return err<Member>('transport', 'createMember belum tersedia — mock mode tanpa backend.')
+  }
+  async updateMember(): Promise<RepositoryResult<Member>> {
+    return err<Member>('transport', 'updateMember belum tersedia — mock mode tanpa backend.')
+  }
+  async deleteMember(): Promise<RepositoryResult<void>> {
+    return err<void>('transport', 'deleteMember belum tersedia — mock mode tanpa backend.')
+  }
 }

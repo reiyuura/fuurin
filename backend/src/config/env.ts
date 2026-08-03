@@ -24,6 +24,19 @@ const envSchema = z.object({
   STORAGE_LOCAL_ROOT: z.string().default('./storage/uploads'),
   API_BASE_PATH: z.string().startsWith('/').default('/api/v1'),
   API_VERSION: z.string().default('v1'),
+  /** JWT signing secret — must be ≥32 chars. */
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default(
+    // Dev-only default; production throws via validateEnvironment().
+    'dev-only-secret-do-not-use-in-production-replace-me!!',
+  ),
+  /** Access token TTL in seconds (default 15min). */
+  JWT_ACCESS_TTL_SEC: z.coerce.number().int().min(60).max(86400).default(900),
+  /** Refresh token TTL in seconds (default 7d). */
+  JWT_REFRESH_TTL_SEC: z.coerce.number().int().min(3600).max(2592000).default(604800),
+  /** Refresh token cookie name. */
+  JWT_REFRESH_COOKIE: z.string().default('fuurin_rt'),
+  /** Max upload size in bytes (default 10MB). */
+  UPLOAD_MAX_BYTES: z.coerce.number().int().min(1024).max(100_000_000).default(10_000_000),
 })
 
 export type Env = z.infer<typeof envSchema>

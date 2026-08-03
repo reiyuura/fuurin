@@ -68,6 +68,20 @@ export class MockMediaRepository implements MediaRepository {
     }
     return ok(pool)
   }
+
+  /* ── Write — unsupported in mock mode. The real backend write
+        pipeline lands in Sprint 19 (fetch mode only). Surface a
+        clear error instead of silently no-oping. */
+
+  async createPhoto(): Promise<RepositoryResult<MediaItem>> {
+    return err<MediaItem>('transport', 'createPhoto belum tersedia — mock mode tanpa backend.')
+  }
+  async updatePhoto(): Promise<RepositoryResult<MediaItem>> {
+    return err<MediaItem>('transport', 'updatePhoto belum tersedia — mock mode tanpa backend.')
+  }
+  async deletePhoto(): Promise<RepositoryResult<void>> {
+    return err<void>('transport', 'deletePhoto belum tersedia — mock mode tanpa backend.')
+  }
 }
 
 // Re-export the stable id helper for callers that need to derive.

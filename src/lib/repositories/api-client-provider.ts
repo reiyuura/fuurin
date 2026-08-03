@@ -22,6 +22,7 @@ import {
 } from '@/lib/api/session-accessor'
 import { FetchApiClient } from '@/lib/api/fetch-api-client'
 import { noopLogger } from '@/lib/api/logger'
+import { FetchAuthRepository, getAccessToken, setAccessToken, type AuthRepository } from './auth-repository'
 import { getEnvironment } from '@/lib/config/env'
 import type { ApiConfig } from '@/types/api-config'
 
@@ -40,7 +41,11 @@ function resolveConfig(): ApiConfig {
 /** Adapter — auth provider → SessionAccessor abstraction. */
 const sessionAccessor: SessionAccessor = {
   getSession: () => authProvider.getSession(),
-  resolveToken: defaultTokenResolver,
+  resolveToken: () => {
+    // In fetch mode, the access token is in-memory (set by login).
+    const token = getAccessToken()
+    return token ?? null
+  },
 }
 
 function createApiClient(): ApiClient {
@@ -70,3 +75,7 @@ export function __setApiClientForTesting(client: ApiClient | null): void {
   _apiClient = client
 }
 
+
+// Sprint 20A: export auth repo + token helpers.
+export { FetchAuthRepository, getAccessToken, setAccessToken }
+export type { AuthRepository } from './auth-repository'

@@ -90,36 +90,82 @@ export class FetchAlbumRepository implements AlbumRepository {
     return ok(res.data.map(toTimelineEntry))
   }
 
-  /* ── Editor / write (Sprint 20) ───────────────────────────── */
+  /* ── Editor / write (Sprint 19 — backend write API) ───────── */
 
-  private async unsupported<T>(what: string): Promise<RepositoryResult<T>> {
-    return err<T>('transport', `Draft ${what} belum tersedia — write API hadir di sprint berikutnya.`)
+  async createAlbum(input: {
+    slug: string
+    title: unknown
+    period?: unknown
+    cover: string
+    date: string
+    season: 'spring' | 'summer' | 'autumn' | 'winter'
+    category: string
+    visibility?: 'draft' | 'published'
+  }): Promise<RepositoryResult<Album>> {
+    const res = await this.api.request<Album>({
+      method: 'POST', path: '/albums', body: input,
+    })
+    if (res.ok) return ok(res.data)
+    if (res.status === 409) return err<Album>('conflict', res.error.message)
+    if (res.status === 400) return err<Album>('validation', res.error.message)
+    return err<Album>(res.error.code, res.error.message)
   }
+
+  async updateAlbum(slug: string, patch: Partial<{
+    title: unknown
+    period: unknown
+    cover: string
+    date: string
+    season: 'spring' | 'summer' | 'autumn' | 'winter'
+    category: string
+    visibility: 'draft' | 'published'
+    count: number
+    views: number
+  }>): Promise<RepositoryResult<Album>> {
+    const res = await this.api.request<Album>({
+      method: 'PATCH', path: `/albums/${encodeURIComponent(slug)}`, body: patch,
+    })
+    if (res.ok) return ok(res.data)
+    if (res.status === 404) return err<Album>('not_found', res.error.message)
+    if (res.status === 400) return err<Album>('validation', res.error.message)
+    return err<Album>(res.error.code, res.error.message)
+  }
+
+  async deleteAlbum(slug: string): Promise<RepositoryResult<void>> {
+    const res = await this.api.request<{ slug: string; deleted: boolean }>({
+      method: 'DELETE', path: `/albums/${encodeURIComponent(slug)}`,
+    })
+    if (res.ok) return ok(undefined)
+    if (res.status === 404) return err<void>('not_found', res.error.message)
+    return err<void>(res.error.code, res.error.message)
+  }
+
+  /* ── Editor / draft (still mock-backed; backend write API
+        covers album CRUD only — drafts will land with Sprint 20) ── */
 
   async existingSlugs(): Promise<RepositoryResult<string[]>> {
     return this.unsupported('slugs')
   }
-
-  async getDraft(slug: string): Promise<RepositoryResult<AlbumDraft | null>> {
+  async getDraft(_slug: string): Promise<RepositoryResult<AlbumDraft | null>> {
     return this.unsupported('draft')
   }
-
   async createDraft(_input: Omit<AlbumDraft, 'updatedAt'>): Promise<RepositoryResult<AlbumDraft>> {
     return this.unsupported('create')
   }
-
   async updateDraft(
     _slug: string,
     _patch: Partial<Omit<AlbumDraft, 'slug' | 'updatedAt'>>,
   ): Promise<RepositoryResult<AlbumDraft>> {
     return this.unsupported('update')
   }
-
   async deleteDraft(_slug: string): Promise<RepositoryResult<void>> {
     return this.unsupported('delete')
   }
-
   async publish(_slug: string): Promise<RepositoryResult<AlbumDraft>> {
     return this.unsupported('publish')
+  }
+
+  private async unsupported<T>(what: string): Promise<RepositoryResult<T>> {
+    return err<T>('transport', `Draft ${what} belum tersedia — write API hadir di sprint berikutnya.`)
   }
 }

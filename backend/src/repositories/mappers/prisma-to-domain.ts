@@ -45,9 +45,13 @@ import type {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-/** Parse a JSONB L10n column into the domain `L10n` shape. */
+/** Parse a JSONB L10n column into the domain `L10n` shape.
+ *  Accepts partial payloads (`{ en: 'X' }`) — missing locales default
+ *  to empty string. Strict "all 3 required" rejected legitimate
+ *  single-locale writes from the frontend. */
 export function fromL10n(value: unknown): L10n {
-  if (value && typeof value === 'object' && 'ja' in value && 'id' in value && 'en' in value) {
+  if (typeof value === 'string') return { ja: value, id: value, en: value }
+  if (value && typeof value === 'object') {
     const v = value as Record<string, unknown>
     return {
       ja: String(v.ja ?? ''),
@@ -55,9 +59,6 @@ export function fromL10n(value: unknown): L10n {
       en: String(v.en ?? ''),
     }
   }
-  // Defensive: a column that came back as a plain string is normalized
-  // to a triplet so callers always receive an L10n.
-  if (typeof value === 'string') return { ja: value, id: value, en: value }
   return { ja: '', id: '', en: '' }
 }
 

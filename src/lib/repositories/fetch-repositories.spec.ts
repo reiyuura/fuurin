@@ -130,6 +130,37 @@ describe('FetchAlbumRepository', () => {
   })
 })
 
+describe('FetchAlbumRepository — Sprint 19 writes', () => {
+  it('createAlbum POSTs /albums and maps 409 → conflict', async () => {
+    const client = fakeClient(() => failRes(409, 'conflict'))
+    const repo = new FetchAlbumRepository(client)
+    const res = await repo.createAlbum({
+      slug: 'x', title: { en: 'X' }, cover: 'c', date: '2026-01-01',
+      season: 'spring', category: 'school',
+    } as never)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('conflict')
+    expect(client.calls[0]?.method).toBe('POST')
+    expect(client.calls[0]?.path).toBe('/albums')
+  })
+
+  it('updateAlbum PATCHes and maps 404 → not_found', async () => {
+    const client = fakeClient(() => failRes(404, 'not_found'))
+    const res = await new FetchAlbumRepository(client).updateAlbum('ghost', { title: { en: 'X' } })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('not_found')
+    expect(client.calls[0]?.method).toBe('PATCH')
+    expect(client.calls[0]?.path).toBe('/albums/ghost')
+  })
+
+  it('deleteAlbum DELETEs and maps 200 → ok', async () => {
+    const client = fakeClient(() => okRes({ slug: 'x', deleted: true }))
+    const res = await new FetchAlbumRepository(client).deleteAlbum('x')
+    expect(res.ok).toBe(true)
+    expect(client.calls[0]?.method).toBe('DELETE')
+  })
+})
+
 describe('FetchMediaRepository', () => {
   it('list hits /media with filter params', async () => {
     const client = fakeClient(() => okRes([mediaDto]))
@@ -172,6 +203,33 @@ describe('FetchMediaRepository', () => {
   })
 })
 
+describe('FetchMediaRepository — Sprint 19 writes', () => {
+  it('createPhoto POSTs /media and maps 409 → conflict', async () => {
+    const client = fakeClient(() => failRes(409, 'conflict'))
+    const res = await new FetchMediaRepository(client).createPhoto({
+      albumSlug: 'a', idx: 0, src: 'p.jpg', caption: { en: 'X' },
+      orientation: 'landscape', date: '2026-01-01',
+    })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('conflict')
+    expect(client.calls[0]?.method).toBe('POST')
+  })
+
+  it('updatePhoto PATCHes /media/${slug}:${idx}', async () => {
+    const client = fakeClient(() => okRes(mediaDto))
+    const res = await new FetchMediaRepository(client).updatePhoto('a', 0, { likes: 1 })
+    expect(res.ok).toBe(true)
+    expect(client.calls[0]?.path).toBe('/media/a%3A0')
+  })
+
+  it('deletePhoto DELETEs and returns ok', async () => {
+    const client = fakeClient(() => okRes({ id: 'a:0', deleted: true }))
+    const res = await new FetchMediaRepository(client).deletePhoto('a', 0)
+    expect(res.ok).toBe(true)
+    expect(client.calls[0]?.method).toBe('DELETE')
+  })
+})
+
 describe('FetchMemberRepository', () => {
   it('listMembers hits /members and derives initial from nameJa', async () => {
     const client = fakeClient(() => okRes([memberDto]))
@@ -194,5 +252,47 @@ describe('FetchMemberRepository', () => {
     const res = await new FetchMemberRepository(client).updateProfile({ name: 'X' })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error.code).toBe('transport')
+  })
+})
+
+describe('FetchMemberRepository — Sprint 19 writes', () => {
+  const memberDto: MemberDto = {
+    id: 'm-1', name: { ja: '佐藤', id: 'Satou', en: 'Sato' }, nameJa: '佐藤',
+    role: { ja: '委員', id: 'Anggota', en: 'Member' }, avatar: 'a.jpg',
+  }
+
+  it('createMember POSTs /members and maps 409 → conflict', async () => {
+    const client = fakeClient(() => failRes(409, 'conflict'))
+    const res = await new FetchMemberRepository(client).createMember({
+      nameJa: 'X', name: { en: 'X' }, avatar: 'a.jpg',
+    })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('conflict')
+    expect(client.calls[0]?.method).toBe('POST')
+  })
+
+  it('updateMember PATCHes and maps 404', async () => {
+    const client = fakeClient(() => failRes(404, 'not_found'))
+    const res = await new FetchMemberRepository(client).updateMember('ghost', { nameJa: 'Y' })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error.code).toBe('not_found')
+    expect(client.calls[0]?.path).toBe('/members/ghost')
+  })
+
+  it('deleteMember DELETEs and returns ok', async () => {
+    const client = fakeClient(() => okRes({ id: 'm-1', deleted: true }))
+    const res = await new FetchMemberRepository(client).deleteMember('m-1')
+    expect(res.ok).toBe(true)
+    expect(client.calls[0]?.method).toBe('DELETE')
+  })
+
+  it('createMember maps success → Member domain shape', async () => {
+    const client = fakeClient(() => okRes(memberDto))
+    const res = await new FetchMemberRepository(client).createMember({
+      nameJa: '佐藤', name: { ja: '佐藤' }, avatar: 'a.jpg',
+    })
+    if (!res.ok) throw new Error('expected ok')
+    expect(res.value.id).toBe('m-1')
+    expect(res.value.initial).toBe('佐')
   })
 })

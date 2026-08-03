@@ -66,15 +66,18 @@ function deriveOrientation(seed: number): 'landscape' | 'portrait' {
 // ── Seed operations ─────────────────────────────────────────────────
 
 async function seedUser(): Promise<string> {
+  // Sprint 20A: hash the seed password so login works end-to-end.
+  const bcrypt = await import('bcryptjs')
+  const passwordHash = await bcrypt.hash('rei12345', 10)
   const u = await prisma.user.upsert({
     where: { email: 'rei@fuurin.id' },
-    update: {},
+    update: { passwordHash },
     create: {
       email: 'rei@fuurin.id',
       name: 'Rei',
       role: 'admin',
       avatar: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=256&q=85',
-      passwordHash: null, // populated in Sprint 20
+      passwordHash,
     },
   })
   return u.id

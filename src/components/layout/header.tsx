@@ -19,7 +19,7 @@ import {
 
   X,
 } from 'lucide-react'
-import { CURRENT_USER } from '@/lib/data'
+import { pick } from '@/lib/data'
 import { LOCALES, useLocale, type DictKey } from '@/lib/i18n'
 import { useSearch } from '@/lib/search'
 import { useTheme } from '@/lib/theme'
@@ -179,25 +179,15 @@ export function Header({ active = '/' }: { active?: string }) {
                 className="relative grid size-8 place-items-center rounded-full text-muted-foreground transition hover:bg-hover hover:text-primary"
               >
                 <Bell size={14} aria-hidden="true" />
-                {CURRENT_USER.notifications > 0 && (
-                  <span className="absolute right-1 top-1 grid size-3.5 place-items-center rounded-full bg-primary-strong text-[8px] font-bold text-primary-foreground">
-                    {CURRENT_USER.notifications}
-                  </span>
-                )}
               </button>
               {open === 'bell' && (
                 <Dropdown onClick={stop} className="w-64">
                   <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[.14em] text-subtle-foreground">
                     {t('notif.title')}
                   </p>
-                  {NOTIFS.map((key) => (
-                    <p
-                      key={key}
-                      className="rounded-xl px-3 py-2 font-jp text-[11px] leading-snug text-foreground-strong transition hover:bg-hover"
-                    >
-                      {t(key)}
-                    </p>
-                  ))}
+                  <p className="px-3 py-3 text-[11px] text-muted-foreground">
+                    {t('notif.empty')}
+                  </p>
                 </Dropdown>
               )}
             </div>

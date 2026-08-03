@@ -40,4 +40,40 @@ export class FetchMemberRepository implements UserRepository {
     if (!res.ok) return err<Member[]>(res.error.code, res.error.message)
     return ok(res.data.map(toMember))
   }
+
+  /* ── Write (Sprint 19) ─────────────────────────────────────── */
+
+  async createMember(input: {
+    nameJa: string
+    name: unknown
+    role?: unknown
+    avatar: string
+  }): Promise<RepositoryResult<Member>> {
+    const res = await this.api.request<MemberDto>({ method: 'POST', path: '/members', body: input })
+    if (!res.ok) {
+      if (res.status === 409) return err<Member>('conflict', res.error.message)
+      if (res.status === 400) return err<Member>('validation', res.error.message)
+      return err<Member>(res.error.code, res.error.message)
+    }
+    return ok(toMember(res.data))
+  }
+
+  async updateMember(id: string, patch: Partial<{ nameJa: string; name: unknown; role: unknown; avatar: string }>): Promise<RepositoryResult<Member>> {
+    const res = await this.api.request<MemberDto>({
+      method: 'PATCH', path: `/members/${encodeURIComponent(id)}`, body: patch,
+    })
+    if (res.ok) return ok(toMember(res.data))
+    if (res.status === 404) return err<Member>('not_found', res.error.message)
+    if (res.status === 400) return err<Member>('validation', res.error.message)
+    return err<Member>(res.error.code, res.error.message)
+  }
+
+  async deleteMember(id: string): Promise<RepositoryResult<void>> {
+    const res = await this.api.request<{ id: string; deleted: boolean }>({
+      method: 'DELETE', path: `/members/${encodeURIComponent(id)}`,
+    })
+    if (res.ok) return ok(undefined)
+    if (res.status === 404) return err<void>('not_found', res.error.message)
+    return err<void>(res.error.code, res.error.message)
+  }
 }

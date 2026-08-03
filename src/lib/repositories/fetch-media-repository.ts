@@ -63,4 +63,55 @@ export class FetchMediaRepository implements MediaRepository {
     if (!res.ok) return err<MediaItem[]>(res.error.code, res.error.message)
     return ok(res.data.map(toMediaItem))
   }
+
+  /* ── Write (Sprint 19) ─────────────────────────────────────── */
+
+  async createPhoto(input: {
+    albumSlug: string
+    idx: number
+    src: string
+    caption: unknown
+    ago?: unknown
+    tags?: string[]
+    likes?: number
+    orientation: 'landscape' | 'portrait'
+    date: string
+  }): Promise<RepositoryResult<MediaItem>> {
+    const res = await this.api.request<MediaDto>({
+      method: 'POST',
+      path: '/media',
+      body: input,
+    })
+    if (res.ok) return ok(toMediaItem(res.data))
+    if (res.status === 409) return err<MediaItem>('conflict', res.error.message)
+    if (res.status === 404) return err<MediaItem>('not_found', res.error.message)
+    if (res.status === 400) return err<MediaItem>('validation', res.error.message)
+    return err<MediaItem>(res.error.code, res.error.message)
+  }
+
+  async updatePhoto(
+    albumSlug: string,
+    idx: number,
+    patch: Parameters<MediaRepository['updatePhoto']>[2],
+  ): Promise<RepositoryResult<MediaItem>> {
+    const res = await this.api.request<MediaDto>({
+      method: 'PATCH',
+      path: `/media/${encodeURIComponent(`${albumSlug}:${idx}`)}`,
+      body: patch,
+    })
+    if (res.ok) return ok(toMediaItem(res.data))
+    if (res.status === 404) return err<MediaItem>('not_found', res.error.message)
+    if (res.status === 400) return err<MediaItem>('validation', res.error.message)
+    return err<MediaItem>(res.error.code, res.error.message)
+  }
+
+  async deletePhoto(albumSlug: string, idx: number): Promise<RepositoryResult<void>> {
+    const res = await this.api.request<{ id: string; deleted: boolean }>({
+      method: 'DELETE',
+      path: `/media/${encodeURIComponent(`${albumSlug}:${idx}`)}`,
+    })
+    if (res.ok) return ok(undefined)
+    if (res.status === 404) return err<void>('not_found', res.error.message)
+    return err<void>(res.error.code, res.error.message)
+  }
 }

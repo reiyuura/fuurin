@@ -191,6 +191,22 @@ model TimelineEntry {
   @@index([albumId])
 }
 
+// ── Audit log (Sprint 20) ────────────────────────────────────────
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  actorId   String?
+  action    String   // 'create' | 'update' | 'delete'
+  entity    String   // 'Album' | 'Photo' | 'Member' | 'Timeline' | etc.
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
 // ── Upload records ───────────────────────────────────────────────────
 
 model UploadRecord {
