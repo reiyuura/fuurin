@@ -21,11 +21,15 @@ export function createAuthController(service: AuthService, env: Env) {
       if (!result.ok) throw new ApiError(result.error.code, result.error.message)
 
       // Set refresh token as HTTP-only cookie.
+      // Sprint 25 fix: path '/' so the cookie is sent on ALL same-origin
+      // requests (not just /api/v1/auth/*). The narrow path caused a race
+      // where the cookie wasn't attached to the refresh call after a
+      // redirect from login.
       reply.setCookie(env.JWT_REFRESH_COOKIE, result.value.refreshToken, {
         httpOnly: true,
         secure: env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/v1/auth',
+        path: '/',
         expires: new Date(result.value.refreshExpiresAt),
       })
 
@@ -56,7 +60,7 @@ export function createAuthController(service: AuthService, env: Env) {
         httpOnly: true,
         secure: env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/v1/auth',
+        path: '/',
         expires: new Date(result.value.refreshExpiresAt),
       })
 
@@ -72,7 +76,7 @@ export function createAuthController(service: AuthService, env: Env) {
       if (cookieToken) {
         await service.logout(cookieToken)
       }
-      reply.clearCookie(env.JWT_REFRESH_COOKIE, { path: '/api/v1/auth' })
+      reply.clearCookie(env.JWT_REFRESH_COOKIE, { path: '/' })
       return reply.send({ ok: true })
     },
 

@@ -12,8 +12,15 @@ export const BEARER_HEADER = 'Authorization'
 /**
  * Read the current session and return a header map. When guest,
  * returns the input untouched. When authenticated, adds the
- * `Authorization: Bearer <token>` header using the accessor's
+ * `Authorization: Bearer *** header using the accessor's
  * `resolveToken` policy.
+ *
+ * Sprint 25 fix: in fetch mode, the in-memory access token is set
+ * via `setAccessToken()` — the mock `authProvider.getSession()`
+ * returns null, so the old code skipped `resolveToken` entirely.
+ * We now call `resolveToken` with a synthetic session (or null)
+ * and check for a token regardless of whether `getSession()` found
+ * a mock session.
  */
 export async function injectAuthHeaders(
   base: Record<string, string>,
@@ -21,16 +28,15 @@ export async function injectAuthHeaders(
 ): Promise<Record<string, string>> {
   try {
     const session = await accessor.getSession()
-    if (!session) return base
-    const token = accessor.resolveToken(session)
+    // Try resolveToken even when session is null — in fetch mode,
+    // resolveToken reads from the in-memory token store, not session.
+    const token = accessor.resolveToken(session as never)
     if (!token) return base
     return {
       ...base,
       [BEARER_HEADER]: `Bearer ${token}`,
     }
   } catch {
-    // If session lookup itself fails, send the request without auth —
-    // the server's 401 will trigger the same UX as a guest request.
     return base
   }
 }

@@ -29,7 +29,10 @@ export function buildRequestInit({
     headers: { ...headers },
     signal,
     cache: 'no-store',
-    credentials: 'omit',
+    // Sprint 25 fix: 'include' so the browser stores the HttpOnly refresh
+    // cookie set by /auth/login. Without this, credentials:'omit' strips
+    // Set-Cookie from the login response → session lost on next page load.
+    credentials: 'include',
     redirect: 'follow',
   }
 
