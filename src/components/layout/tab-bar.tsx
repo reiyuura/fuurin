@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Clock, Home, Images, Search, User } from 'lucide-react'
+import { Clock, Home, Images, Search, User, Users } from 'lucide-react'
 import { useLocale, type DictKey } from '@/lib/i18n'
 import { useSearch } from '@/lib/search'
 
@@ -9,6 +9,7 @@ const TABS: { key: DictKey; href?: string; icon: typeof Home; action?: 'search' 
   { key: 'tab.home', href: '/', icon: Home },
   { key: 'tab.albums', href: '/albums', icon: Images },
   { key: 'tab.timeline', href: '/timeline', icon: Clock },
+  { key: 'tab.members', href: '/members', icon: Users },
   { key: 'tab.search', icon: Search, action: 'search' },
   { key: 'tab.profile', href: '/favorites', icon: User },
 ]

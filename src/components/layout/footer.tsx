@@ -26,7 +26,7 @@ const COLUMNS: { heading: DictKey; links: { key: DictKey; href: string }[] }[] =
     heading: 'footer.classTitle',
     links: [
       { key: 'footer.classTeacher', href: '/about' },
-      { key: 'footer.classMembers', href: '/about' },
+      { key: 'footer.classMembers', href: '/members' },
       { key: 'footer.classRules', href: '/about' },
       { key: 'footer.classGallery', href: '/albums' },
     ],

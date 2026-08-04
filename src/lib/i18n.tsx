@@ -254,6 +254,7 @@ const DICT = {
   'tab.timeline': { ja: 'タイムライン', id: 'Timeline', en: 'Timeline' },
   'tab.search': { ja: '検索', id: 'Search', en: 'Search' },
   'tab.profile': { ja: 'プロフィール', id: 'Profile', en: 'Profile' },
+  'tab.members': { ja: 'メンバー', id: 'Anggota', en: 'Members' },
 } as const
 
 export type DictKey = keyof typeof DICT

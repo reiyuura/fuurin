@@ -28,10 +28,9 @@ export class FetchUploadRepository implements UploadRepository {
       method: 'POST',
       path: '/uploads',
       body: form as unknown as Record<string, unknown>,
-      headers: {
-        // Let fetch set Content-Type with boundary for FormData.
-        'Content-Type': 'multipart/form-data',
-      },
+      // Do NOT set Content-Type — the browser sets it with the correct
+      // multipart boundary automatically. Manual setting strips the
+      // boundary and the backend can't parse the body.
     } as never)
     return res
   }
