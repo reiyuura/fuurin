@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] — 2026-08-03 — First Official Release
+## [1.0.0] — 2026-08-04 — Production Release
 
-The first stable release after three milestones of work. The repository is feature-complete for the planned scope and ready for production deployment.
+First stable production release. Full-stack album CMS with authentication,
+authorization, editor workspace, draft publishing, media library, and
+deployment automation.
 
 ### Added
 
@@ -30,33 +32,93 @@ The first stable release after three milestones of work. The repository is featu
 - Photo deep-link route with thumbnail strip, share, and copy-link.
 - Favorites gallery using the explorer layout.
 
-#### Milestone C — Content Management & Backend Integration (Sprint 9–15)
+#### Milestone C — Content Management & Frontend Hardening (Sprint 9–15)
 
-- **Sprint 9 — Media Library.** Selection-mode grid, search debounce, lazy paginated load, filter chips.
-- **Sprint 10 — Upload Pipeline.** Drag-and-drop or picker, MIME and size validation, per-item progress and retry, queue summary, lazy preview drawer, object-URL cleanup on unmount.
-- **Sprint 11 — Album Editor.** Title, description, date, location, visibility; cover picker + multi-select photo picker with search/filter/sort; drag-and-drop reorder with keyboard fallback; draft / publish / delete with confirmation; `beforeunload` + internal-link unsaved guard.
-- **Sprint 12 — Authentication.** Mock auth provider with seeded admin/editor accounts, `admin`/`editor`/`viewer` roles, permission constants in a single source of truth, role-based UI, route protection via `useRequireAuth` + `<ProtectedShell>`, login form with `aria-live` errors, cross-tab session sync.
-- **Sprint 13 — Repository Layer.** Domain-only repository interfaces (`AlbumRepository`, `MediaRepository`, `UploadRepository`, `UserRepository`), one-way DTO → Domain mappers, singleton `repositories` registry, `RepositoryResult<T>` discriminated union, structured error model.
-- **Sprint 14 — Backend API Integration.** `FetchApiClient` with `SessionAccessor` auth abstraction, request builder, response parser (JSON / 204 / non-JSON), error mapper, retry policy (GET only, max 2, jittered backoff), AbortController timeout, request dedupe for GET, sanitized structured logger.
-- **Sprint 15 — Production Hardening.** Fail-fast environment validation (instrumentation startup gate, prebuild/prestart script, runtime error mapping), security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, COOP), segment + global error boundaries with chunk-load detection, consistent 401/403/404/500 status pages, `/api/health` JSON probe, sitemap + robots, Open Graph + Twitter card metadata, replaceable monitoring adapter, accessibility + bundle + image + boundary audits.
+- Media Library selection-mode grid, search debounce, lazy paginated load, filter chips.
+- Upload pipeline: drag-and-drop, MIME and size validation, per-item progress and retry, queue summary.
+- Album Editor: title, description, date, visibility, cover picker, photo picker, drag-and-drop reorder.
+- Mock authentication with seeded admin/editor accounts, role-based UI, route protection.
+- Repository layer with domain-only interfaces, DTO → Domain mappers, `RepositoryResult<T>`.
+- `FetchApiClient` with `SessionAccessor` auth, retry policy, AbortController timeout, request dedupe.
+- Fail-fast environment validation, security headers (CSP, X-Frame-Options, etc.), error boundaries.
+
+#### Milestone D — Backend & Production Foundation (Sprint 16–25)
+
+- **Sprint 16–18 — Read/Write API.** Fastify 5 backend, Prisma ORM, PostgreSQL.
+  Layered: Route → Controller → Service → Repository. Full read API
+  (albums, media, members, timeline, search). Full write API (CRUD for
+  albums, media, timeline, members) with Zod validation.
+- **Sprint 19 — Authorization & Audit.** JWT auth (access + refresh),
+  `requireAuth` + `requireRole` middleware, session table with rotation,
+  `AuditLog` table recording every write mutation post-commit.
+- **Sprint 20A–D — Session & Stats.** `FetchAuthRepository`, `SessionProvider`
+  with mount-time refresh → currentUser → authenticated/guest flow. `GET /stats`
+  public endpoint (totalAlbums, totalPhotos, totalMembers, totalTimelineEntries).
+- **Sprint 21 — Editor Workspace.** `/editor` layout with responsive sidebar,
+  album CRUD UI, cover upload integration, create/edit/delete with confirmation
+  dialog, permission-aware UI (viewer/editor/admin), optimistic updates.
+- **Sprint 22 — Media Library.** Grid view, multi-file parallel upload (max 3
+  concurrent), retry per file, bulk select + delete (admin), `DELETE /media/bulk`,
+  `PATCH /media/reorder`, image viewer modal with zoom/next/prev.
+- **Sprint 23–23.5 — Draft & Publishing.** `AlbumDraft` entity (draft/published/
+  archived), full draft CRUD API, atomic publish via `Prisma.$transaction`
+  (create/update Album + update Draft in single transaction), editor UI with
+  draft list, autosave (2s debounce), unsaved changes warning (`beforeunload`),
+  internal preview, cover upload before save.
+- **Sprint 24–24.5 — Editor Polish.** Toast notification system (success/error/
+  info, ARIA live region), keyboard shortcuts (Ctrl+S, Ctrl+P, Esc), breadcrumb
+  navigation, `@dnd-kit` drag-and-drop reorder with keyboard support, replace
+  media, attach media to album, focus trap + restore on all dialogs.
+- **Sprint 25 — Release Candidate.** tsc 0 errors, ESLint 0 warnings, security
+  headers (CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy,
+  Permissions-Policy), rate limiting (login 10/min/IP, upload 30/min/IP),
+  `useFocusTrap` hook, `deploy.sh` (migrate → seed → build → restart → smoke),
+  `backup.sh`/`restore.sh` (pg_dump/restore), `scripts/smoke-e2e.sh` (14-step
+  end-to-end), README documentation, critical test database isolation fix
+  (`fuurin_test` pinning to prevent production data truncation).
 
 ### Changed
 
-- Image rendering consolidated to `next/image` with explicit `sizes` and `fill` — every photo card, hero, sidebar thumbnail, search result, and avatar.
-- Object URLs in the upload worker moved to a dedicated ref-tracked set; no ref reads or mutations during render.
-- Failed env validation in production aborts startup before any repository or provider is instantiated.
+- Repository architecture: all data flows through Page → Feature Hook →
+  Repository → FetchApiClient → Backend. No direct `fetch()` in components.
+- Publish is atomic: `Prisma.$transaction` creates/updates Album and sets
+  Draft visibility in a single commit — no partial publish.
+- Upload is parallel: max 3 concurrent workers with per-file retry (2 retries,
+  exponential backoff) — no batch rollback on individual failure.
+- Cookie auth: refresh cookie `path: '/'` (was `/api/v1/auth`), `credentials:
+  'include'` on all requests, `injectAuthHeaders` calls `resolveToken` even
+  when session is null (fetch mode reads from in-memory token store).
+- Editor routes protected by Next.js middleware: guests redirected to
+  `/login?next=...` — backend API still enforces auth independently.
+
+### Fixed
+
+- Login persistence: three root causes fixed — `credentials: 'omit'` →
+  `'include'`, `injectAuthHeaders` skipping `resolveToken` when session null,
+  cookie path too narrow (`/api/v1/auth` → `/`).
+- Draft authorization: `GET /drafts` and `GET /drafts/:slug` were public —
+  added `preHandler: [requireAuth, requireRole('admin', 'editor')]`.
+- Editor guest access: `/editor/*` accessible without login — added
+  `src/middleware.ts` with cookie presence check + redirect.
+- Test database isolation: `getTestPrisma()` honored `process.env.DATABASE_URL`
+  (production) over fallback, causing `truncateAll()` to wipe production data
+  on every `vitest run` — pinned to `fuurin_test` via `pinTestDatabaseEnv()`.
+- Backend seed: `bcrypt.hash` ESM interop (`'default' in module` check) —
+  seed failed silently in production, leaving zero users.
+- Stale PM2 process: `npm run build` without `pm2 restart` caused chunk
+  404 → hydration failure → page rendered but non-interactive — documented
+  in README deployment rules.
 
 ### Security
 
-- Environment variables no longer read ad-hoc — all consumers call `getEnvironment()` which throws on invalid production config.
-- Authorization header injected by `SessionAccessor` adapter; logger redacts `Authorization`, `token`, `password`, `secret`, `cookie`, `session` keys before serialization.
-- Content Security Policy allows the validated API origin in `connect-src`, sets `frame-ancestors 'none'`, and upgrades insecure requests in production.
-
-### Notes
-
-- No breaking changes — this is the first stable release; pre-1.0 history is documented in git history and milestone reports.
-- Mock auth and mock API store are intentional for the v1.0.0 milestone; backend integration is the next milestone.
-- See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the public release narrative.
+- CSP: `default-src 'self'` (page), `default-src 'none'` (API JSON).
+- Cookies: HttpOnly, Secure (prod), SameSite=Lax, path `/`.
+- Rate limits: login/refresh 10/min/IP, upload 30/min/IP (disabled in test).
+- Zod validation on every write payload.
+- Upload: MIME whitelist, size cap, filename sanitization, path traversal protection.
+- SQL injection: Prisma parameterized queries; sort param validated by Zod enum.
+- Auth bypass: all write endpoints return 401 without Bearer token.
+- Draft routes: editor/admin only (fixed in release blocker verification).
 
 [Unreleased]: https://github.com/fuurin/fuurin-album/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/fuurin/fuurin-album/releases/tag/v1.0.0
