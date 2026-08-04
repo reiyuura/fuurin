@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { FileText, Loader2, Plus, Trash2 } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { useSession } from '@/components/auth/session-provider'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import { useToast } from '@/components/ui/toast'
 
 type Draft = {
@@ -25,6 +26,7 @@ type Draft = {
 
 export default function DraftsPage() {
   const { user } = useSession()
+  const authReady = useAuthReady()
   const { toast } = useToast()
   const router = useRouter()
   const isEditor = user?.role === 'admin' || user?.role === 'editor'
@@ -49,7 +51,7 @@ export default function DraftsPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchDrafts() }, [fetchDrafts])
+  useEffect(() => { if (authReady) fetchDrafts() }, [fetchDrafts, authReady])
 
   const handlePublish = async (slug: string) => {
     setPublishing(slug)

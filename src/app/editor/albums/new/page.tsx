@@ -9,10 +9,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Loader2, Upload } from 'lucide-react'
+import { Loader2, Upload } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { getEnvironment } from '@/lib/config/env'
 import { FetchAlbumRepository } from '@/lib/repositories/fetch-album-repository'
 import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
+import { useToast } from '@/components/ui/toast'
 import clsx from 'clsx'
 
 const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const
@@ -20,6 +22,8 @@ const CATEGORIES = ['school', 'festival', 'study', 'travel', 'graduation'] as co
 
 export default function NewAlbumPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const env = getEnvironment()
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [season, setSeason] = useState<string>('spring')
@@ -29,7 +33,6 @@ export default function NewAlbumPage() {
   const [coverUrl, setCoverUrl] = useState<string>('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   // Auto-generate slug from title.
   const handleTitleChange = (v: string) => {
@@ -49,24 +52,26 @@ export default function NewAlbumPage() {
   const handleUploadCover = async () => {
     if (!coverFile) return
     setUploading(true)
-    setError(null)
     const repo = new FetchUploadRepository(getApiClient())
     const res = await repo.upload(coverFile)
     if (res.ok) {
-      setCoverUrl(res.data.url)
+      // Backend requires z.string().url() — prefix relative path with API origin.
+      const rawUrl = res.data.url
+      const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${env.apiBaseUrl.replace('/api', '')}${rawUrl}`
+      setCoverUrl(absoluteUrl)
+      toast('success', 'Cover terunggah.')
     } else {
-      setError(res.error.message)
+      toast('error', res.error.message)
     }
     setUploading(false)
   }
 
   const handleCreate = async () => {
-    if (!title.trim()) { setError('Judul wajib diisi.'); return }
-    if (!slug.trim()) { setError('Slug wajib diisi.'); return }
-    if (!coverUrl) { setError('Unggah cover terlebih dahulu.'); return }
+    if (!title.trim()) { toast('error', 'Judul wajib diisi.'); return }
+    if (!slug.trim()) { toast('error', 'Slug wajib diisi.'); return }
+    if (!coverUrl) { toast('error', 'Unggah cover terlebih dahulu.'); return }
 
     setSaving(true)
-    setError(null)
     const repo = new FetchAlbumRepository(getApiClient())
     const res = await repo.createAlbum({
       slug: slug.trim(),
@@ -77,10 +82,11 @@ export default function NewAlbumPage() {
       category,
     })
     if (res.ok) {
+      toast('success', `Album "${title.trim()}" dibuat.`)
       router.push('/editor/albums')
       router.refresh()
     } else {
-      setError(res.error.message)
+      toast('error', res.error.message)
       setSaving(false)
     }
   }
@@ -91,12 +97,6 @@ export default function NewAlbumPage() {
         <h1 className="text-xl font-bold text-foreground-strong">Album Baru</h1>
         <p className="text-[13px] text-muted-foreground mt-0.5">Isi detail album lalu simpan.</p>
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-error/20 bg-error/5 px-4 py-3 text-[13px] text-error">
-          {error}
-        </div>
-      )}
 
       {/* Title */}
       <label className="block">
@@ -144,8 +144,7 @@ export default function NewAlbumPage() {
           )}
           {coverUrl && (
             <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#7A9E7E]/10 px-3 py-2 text-[12px] font-medium text-[#7A9E7E]">
-              <Check size={13} aria-hidden="true" />
-              Terunggah
+              ✓ Terunggah
             </span>
           )}
         </div>

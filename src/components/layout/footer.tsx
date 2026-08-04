@@ -3,7 +3,7 @@
 import { useLocale, type DictKey } from '@/lib/i18n'
 import { Fuurin, FujiScene } from '@/components/ui/decor'
 
-const COLUMNS: { heading: DictKey; links: { key: DictKey; href: string }[] }[] = [
+const COLUMNS: { heading: DictKey; links: { key: DictKey; href?: string; comingSoon?: boolean }[] }[] = [
   {
     heading: 'footer.nav',
     links: [
@@ -16,10 +16,10 @@ const COLUMNS: { heading: DictKey; links: { key: DictKey; href: string }[] }[] =
   {
     heading: 'footer.help',
     links: [
-      { key: 'footer.helpHow', href: '/about' },
-      { key: 'footer.helpPrivacy', href: '/about' },
-      { key: 'footer.helpContact', href: '/about' },
-      { key: 'footer.helpFaq', href: '/about' },
+      { key: 'footer.helpHow', comingSoon: true },
+      { key: 'footer.helpPrivacy', comingSoon: true },
+      { key: 'footer.helpContact', comingSoon: true },
+      { key: 'footer.helpFaq', comingSoon: true },
     ],
   },
   {
@@ -27,7 +27,7 @@ const COLUMNS: { heading: DictKey; links: { key: DictKey; href: string }[] }[] =
     links: [
       { key: 'footer.classTeacher', href: '/about' },
       { key: 'footer.classMembers', href: '/members' },
-      { key: 'footer.classRules', href: '/about' },
+      { key: 'footer.classRules', comingSoon: true },
       { key: 'footer.classGallery', href: '/albums' },
     ],
   },
@@ -75,15 +75,15 @@ export function Footer() {
             <ul className="mt-3.5 flex gap-1.5">
               {SOCIALS.map(({ label, path }) => (
                 <li key={label}>
-                  <a
-                    href="#"
+                  <span
                     aria-label={label}
-                    className="grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground transition duration-300 hover:-translate-y-0.5 hover:border-primary hover:bg-hover hover:text-primary hover:shadow-[0_4px_12px_rgba(200,124,141,0.18)]"
+                    className="grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-50"
+                    title="Coming Soon"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d={path} />
                     </svg>
-                  </a>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -95,12 +95,19 @@ export function Footer() {
               <ul className="mt-2.5 space-y-1.5">
                 {col.links.map((l) => (
                   <li key={l.key}>
-                    <a
-                      href={l.href}
-                      className="text-[11px] text-muted-foreground transition hover:text-primary"
-                    >
-                      {t(l.key)}
-                    </a>
+                    {l.href ? (
+                      <a
+                        href={l.href}
+                        className="text-[11px] text-muted-foreground transition hover:text-primary"
+                      >
+                        {t(l.key)}
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+                        {t(l.key)}
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wide text-muted-foreground/80">Soon</span>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -12,6 +12,8 @@ import Link from 'next/link'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { FetchAlbumRepository } from '@/lib/repositories/fetch-album-repository'
 import { useSession } from '@/components/auth/session-provider'
+import { useAuthReady } from '@/hooks/use-auth-ready'
+import { useToast } from '@/components/ui/toast'
 import { DeleteAlbumButton } from '@/components/editor/delete-dialog'
 import type { Album } from '@/lib/data'
 
@@ -19,6 +21,8 @@ export default function AlbumEditPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
   const { user } = useSession()
+  const authReady = useAuthReady()
+  const { toast } = useToast()
   const isAdmin = user?.role === 'admin'
 
   const [album, setAlbum] = useState<Album | null>(null)
@@ -28,10 +32,9 @@ export default function AlbumEditPage() {
   // Editable fields.
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    if (!authReady) return
     const repo = new FetchAlbumRepository(getApiClient())
     repo.getAlbum(slug).then((res) => {
       if (res.ok && res.value) {
@@ -45,23 +48,20 @@ export default function AlbumEditPage() {
       setError('Gagal memuat album.')
       setLoading(false)
     })
-  }, [slug])
+  }, [slug, authReady])
 
   const handleSave = async () => {
     setSaving(true)
-    setSaveError(null)
-    setSaved(false)
     const repo = new FetchAlbumRepository(getApiClient())
     const res = await repo.updateAlbum(slug, {
       title: { en: title.trim(), id: title.trim(), ja: title.trim() },
     })
     if (res.ok) {
       setAlbum(res.value)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      toast('success', 'Album tersimpan.')
       router.refresh()
     } else {
-      setSaveError(res.error.message)
+      toast('error', res.error.message)
     }
     setSaving(false)
   }
@@ -123,8 +123,6 @@ export default function AlbumEditPage() {
         <h2 className="text-sm font-semibold text-foreground-strong">Edit Judul</h2>
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground-strong focus:outline-none focus:ring-2 focus:ring-primary/30" />
-        {saveError && <p className="text-[12px] text-error">{saveError}</p>}
-        {saved && <p className="text-[12px] text-[#7A9E7E] font-medium">✓ Tersimpan</p>}
         <button onClick={handleSave} disabled={saving}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-medium text-white transition hover:bg-primary/90 disabled:opacity-50">
           {saving ? <Loader2 size={14} className="animate-spin" /> : null}

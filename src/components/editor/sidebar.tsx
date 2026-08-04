@@ -42,7 +42,7 @@ export function EditorSidebar() {
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border flex flex-col transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-[85%] max-w-72 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:w-64',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >

@@ -11,9 +11,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, FolderInput, ImageOff, Loader2, RefreshCw, Search, Trash2, Upload, X } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { getEnvironment } from '@/lib/config/env'
 import { FetchMediaRepository } from '@/lib/repositories/fetch-media-repository'
 import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
 import { useSession } from '@/components/auth/session-provider'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import { useToast } from '@/components/ui/toast'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import { SortableMediaGrid } from '@/components/editor/sortable-media-grid'
@@ -22,6 +24,7 @@ import clsx from 'clsx'
 
 export default function MediaLibraryPage() {
   const { user } = useSession()
+  const authReady = useAuthReady()
   const { toast } = useToast()
   const isEditor = user?.role === 'admin' || user?.role === 'editor'
   const isAdmin = user?.role === 'admin'
@@ -54,7 +57,7 @@ export default function MediaLibraryPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchMedia() }, [fetchMedia])
+  useEffect(() => { if (authReady) fetchMedia() }, [fetchMedia, authReady])
 
   // Load album options for filter + attach dialog.
   useEffect(() => {
@@ -181,20 +184,24 @@ export default function MediaLibraryPage() {
     const up = new FetchUploadRepository(getApiClient())
     const upRes = await up.upload(file)
     if (!upRes.ok) {
-      toast('error', 'Upload pengganti gagal.')
+      toast('error', `Upload pengganti gagal: ${upRes.error.message}`)
       setReplacing(false)
       return
     }
+    // Prefix relative upload URL with API origin for backend validation.
+    const rawUrl = upRes.data.url
+    const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${getEnvironment().apiBaseUrl.replace('/api', '')}${rawUrl}`
     const res = await getApiClient().request({
       method: 'PATCH', path: `/media/${encodeURIComponent(item.id)}`,
-      body: { src: upRes.data.url },
+      body: { src: absoluteUrl },
     })
     setReplacing(false)
     if (res.ok) {
       toast('success', 'Media berhasil diganti.')
-      setMedia((prev) => prev.map((m) => (m.id === item.id ? { ...m, src: upRes.data.url } : m)))
+      setMedia((prev) => prev.map((m) => (m.id === item.id ? { ...m, src: absoluteUrl } : m)))
+      setViewer((v) => v ? { ...v, src: absoluteUrl } : v)
     } else {
-      toast('error', 'Gagal memperbarui media.')
+      toast('error', `Gagal memperbarui media: ${res.error.message}`)
     }
   }
 
