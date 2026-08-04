@@ -6,6 +6,7 @@ import { LocaleProvider } from '@/lib/i18n'
 import { FavoritesProvider } from '@/lib/favorites'
 import { SearchProvider } from '@/lib/search'
 import { SessionProvider } from '@/components/auth/session-provider'
+import { ToastProvider } from '@/components/ui/toast'
 import { SearchPalette } from '@/components/ui/search-palette'
 import './globals.css'
 
@@ -87,8 +88,10 @@ export default function RootLayout({
             <FavoritesProvider>
               <SearchProvider>
                 <SessionProvider>
-                  {children}
-                  <SearchPalette />
+                  <ToastProvider>
+                    {children}
+                    <SearchPalette />
+                  </ToastProvider>
                 </SessionProvider>
               </SearchProvider>
             </FavoritesProvider>
