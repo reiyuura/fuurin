@@ -15,6 +15,7 @@ import { Footer } from '@/components/layout/footer'
 import { TabBar } from '@/components/layout/tab-bar'
 import { LoginForm } from '@/components/auth/login-form'
 import { useAuth } from '@/hooks/use-auth'
+import { useToast } from '@/components/ui/toast'
 
 /** Path-safe — blocks open-redirect attempts to non-app URLs. */
 function safeNext(raw: string | null): string {
@@ -30,6 +31,7 @@ export function LoginExperience() {
   const searchParams = useSearchParams()
   const next = safeNext(searchParams?.get('next'))
   const { status, login } = useAuth()
+  const { toast } = useToast()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +52,7 @@ export function LoginExperience() {
       const message =
         err instanceof Error ? err.message : 'Login gagal. Coba lagi.'
       setError(message)
+      toast('error', message)
     } finally {
       setPending(false)
     }

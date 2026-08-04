@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { FileText, Loader2, Plus, Trash2 } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { useSession } from '@/components/auth/session-provider'
+import { useToast } from '@/components/ui/toast'
 
 type Draft = {
   slug: string
@@ -24,6 +25,7 @@ type Draft = {
 
 export default function DraftsPage() {
   const { user } = useSession()
+  const { toast } = useToast()
   const router = useRouter()
   const isEditor = user?.role === 'admin' || user?.role === 'editor'
   const isAdmin = user?.role === 'admin'
@@ -52,24 +54,39 @@ export default function DraftsPage() {
   const handlePublish = async (slug: string) => {
     setPublishing(slug)
     const client = getApiClient()
-    await client.request({ method: 'POST', path: `/drafts/${slug}/publish` })
+    const res = await client.request({ method: 'POST', path: `/drafts/${slug}/publish` })
     setPublishing(null)
-    fetchDrafts()
-    router.refresh()
+    if (res.ok) {
+      toast('success', `Draft "${slug}" diterbitkan.`)
+      fetchDrafts()
+      router.refresh()
+    } else {
+      toast('error', 'Gagal menerbitkan draft.')
+    }
   }
 
   const handleArchive = async (slug: string) => {
     if (!confirm('Arsipkan draft ini?')) return
     const client = getApiClient()
-    await client.request({ method: 'POST', path: `/drafts/${slug}/archive` })
-    fetchDrafts()
+    const res = await client.request({ method: 'POST', path: `/drafts/${slug}/archive` })
+    if (res.ok) {
+      toast('success', 'Draft diarsipkan.')
+      fetchDrafts()
+    } else {
+      toast('error', 'Gagal mengarsipkan draft.')
+    }
   }
 
   const handleDelete = async (slug: string) => {
     if (!confirm('Hapus permanen draft ini?')) return
     const client = getApiClient()
-    await client.request({ method: 'DELETE', path: `/drafts/${slug}` })
-    fetchDrafts()
+    const res = await client.request({ method: 'DELETE', path: `/drafts/${slug}` })
+    if (res.ok) {
+      toast('success', 'Draft dihapus.')
+      fetchDrafts()
+    } else {
+      toast('error', 'Gagal menghapus draft.')
+    }
   }
 
   if (loading) {

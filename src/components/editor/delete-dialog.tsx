@@ -9,26 +9,27 @@ import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { FetchAlbumRepository } from '@/lib/repositories/fetch-album-repository'
+import { useToast } from '@/components/ui/toast'
 
 type Props = { slug: string; title: string }
 
 export function DeleteAlbumButton({ slug, title }: Props) {
   const router = useRouter()
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async () => {
     setLoading(true)
-    setError(null)
     const repo = new FetchAlbumRepository(getApiClient())
     const res = await repo.deleteAlbum(slug)
+    setLoading(false)
     if (res.ok) {
+      toast('success', `Album "${title}" dihapus.`)
       setOpen(false)
       router.refresh()
     } else {
-      setError(res.error.message)
-      setLoading(false)
+      toast('error', `Gagal menghapus: ${res.error.message}`)
     }
   }
 
@@ -52,9 +53,6 @@ export function DeleteAlbumButton({ slug, title }: Props) {
             <p className="mt-2 text-[13px] text-muted-foreground">
               Album <strong className="text-foreground-strong">{title}</strong> akan dihapus permanen. Semua foto di dalamnya juga akan hilang.
             </p>
-            {error && (
-              <p className="mt-3 text-[12px] text-error">{error}</p>
-            )}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setOpen(false)}

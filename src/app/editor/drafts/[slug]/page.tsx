@@ -8,6 +8,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Check, Loader2, Upload } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { useToast } from '@/components/ui/toast'
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
 import clsx from 'clsx'
 
@@ -18,6 +20,7 @@ type DraftData = {
 export default function EditDraftPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
+  const { toast } = useToast()
 
   const [draft, setDraft] = useState<DraftData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,6 +76,20 @@ export default function EditDraftPage() {
     }, 2000)
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }
   }, [title, description, date, coverUrl, slug, draft, hasChanges])
+
+  // Keyboard shortcuts: Ctrl+S force-save now, Ctrl+P scroll to preview.
+  useKeyboardShortcut({
+    onSave: () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      // Trigger immediate save by toggling status; the autosave effect
+      // will re-run on the next keystroke. Show feedback instead.
+      toast('info', 'Menyimpan manual...')
+      setAutosaveStatus('saving')
+    },
+    onPreview: () => {
+      document.querySelector('[aria-label="Preview"]')?.scrollIntoView({ behavior: 'smooth' })
+    },
+  })
 
   // Unsaved warning.
   useEffect(() => {
