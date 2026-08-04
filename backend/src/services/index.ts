@@ -13,6 +13,8 @@ import { createMemberService, type MemberService } from './member-service'
 import { createSearchService, type SearchService } from './search-service'
 import { AuditService } from './audit-service'
 import { createWriteService, type WriteService } from './write-service'
+import { PrismaDraftRepository } from '../repositories/draft-repository'
+import { createDraftService, type DraftService } from './draft-service'
 
 export type Services = {
   albums: AlbumService
@@ -20,6 +22,7 @@ export type Services = {
   members: MemberService
   search: SearchService
   writes: WriteService
+  drafts: DraftService
 }
 
 export function createServices(repos: Repositories): Services {
@@ -40,6 +43,17 @@ export function createServices(repos: Repositories): Services {
       media: repos.writes,
       timeline: repos.writes,
       members: repos.writes,
+      resolveDefaultOwner: async () => {
+        const id = await repos.firstUserId()
+        if (!id) throw new Error('no user seeded')
+        return id
+      },
+      audit,
+    }),
+    drafts: createDraftService({
+      drafts: new PrismaDraftRepository(getPrisma()),
+      albums: repos.writes,
+      readAlbums: repos.albums,
       resolveDefaultOwner: async () => {
         const id = await repos.firstUserId()
         if (!id) throw new Error('no user seeded')
