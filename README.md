@@ -95,6 +95,13 @@ npx tsc --noEmit && npm run lint
 ./deploy.sh --skip-build # migrate + restart + smoke only
 ```
 
+**Rule (learned the hard way):** never `npm run build` the frontend without
+restarting `fuurin-album` afterwards. The Next.js server loads static chunks
+into memory at process start — rebuilding `.next/` under a running server
+makes it serve HTML referencing chunks it no longer knows (404 → hydration
+fails silently → page renders but nothing is interactive). Always deploy via
+`./deploy.sh`, or manually: `npm run build && pm2 restart fuurin-album`.
+
 PM2 services: `fuurin-backend` (:4001), `fuurin-album` (:3030). Caddy reverse proxy on :80/:443.
 
 ## Backup & Restore
