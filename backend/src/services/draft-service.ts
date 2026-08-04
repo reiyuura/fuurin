@@ -57,34 +57,22 @@ export function createDraftService(deps: DraftServiceDeps) {
     const d = draft.value
     const ownerId = await resolveDefaultOwner()
 
-    // Create or update the album from draft fields.
-    const existing = await readAlbums.getAlbum(slug)
-    if (existing.ok && existing.value) {
-      // Update existing album.
-      await albums.updateAlbum(slug, {
-        title: d.title,
-        cover: d.cover ?? undefined,
-        date: d.date ?? undefined,
-      } as never)
-    } else {
-      // Create new album.
-      await albums.createAlbum({
-        slug: d.slug,
-        title: d.title as never,
-        cover: d.cover ?? '',
-        date: d.date ?? new Date().toISOString().slice(0, 10),
-        season: 'spring',
-        category: 'school',
-        ownerId,
-      } as CreateAlbumWriteInput)
-    }
+    // Single transaction: create/update album + mark draft published.
+    await albums.publishDraft({
+      slug: d.slug,
+      title: d.title,
+      description: d.description ?? undefined,
+      date: d.date ?? undefined,
+      cover: d.cover ?? undefined,
+      ownerId,
+    })
 
-    // Mark draft as published.
-    const result = await drafts.update(slug, { visibility: 'published' })
-    if (result.ok) {
-      void audit.log({ actorId: actorId ?? 'anonymous', action: 'publish', entity: 'Draft', entityId: slug })
-    }
-    return result
+    // Re-read the updated draft.
+    const result = await drafts.get(slug)
+    if (!result.ok) return result
+    if (!result.value) return err('not_found', 'Draft tidak ditemukan setelah publish.')
+    void audit.log({ actorId: actorId ?? 'anonymous', action: 'publish', entity: 'Draft', entityId: slug })
+    return ok(result.value)
   }
 
   async function archive(slug: string, actorId?: string): Promise<Result<void>> {

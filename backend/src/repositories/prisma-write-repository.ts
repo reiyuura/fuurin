@@ -110,6 +110,46 @@ export class PrismaWriteRepository
     }
   }
 
+  /* ── Sprint 23.5: atomic publish ───────────────────────────── */
+
+  async publishDraft(draft: {
+    slug: string; title: string; description?: string; date?: string; cover?: string
+    ownerId: string
+  }): Promise<Result<Album>> {
+    try {
+      const album = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.album.upsert({
+          where: { slug: draft.slug },
+          create: {
+            slug: draft.slug,
+            title: draft.title as never,
+            period: '',
+            count: 0,
+            views: 0,
+            cover: draft.cover ?? '',
+            date: draft.date ?? new Date().toISOString().slice(0, 10),
+            season: 'spring',
+            category: 'school',
+            ownerId: draft.ownerId,
+          },
+          update: {
+            title: draft.title as never,
+            ...(draft.cover !== undefined ? { cover: draft.cover } : {}),
+            ...(draft.date !== undefined ? { date: draft.date } : {}),
+          },
+        })
+        await tx.albumDraft.update({
+          where: { slug: draft.slug },
+          data: { visibility: 'published', albumId: draft.slug },
+        })
+        return row
+      })
+      return ok(toAlbum(album))
+    } catch (e) {
+      return mapWriteError(e, 'Album')
+    }
+  }
+
   /* ── Media / Photo ─────────────────────────────────────────── */
 
   async createPhoto(input: CreateMediaWriteInput): Promise<Result<MediaItem>> {
