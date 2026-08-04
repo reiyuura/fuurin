@@ -89,6 +89,10 @@ export interface MediaWriteRepository {
   createPhoto(input: CreateMediaWriteInput): Promise<Result<MediaItem>>
   updatePhoto(albumSlug: string, idx: number, patch: UpdateMediaWriteInput): Promise<Result<MediaItem>>
   deletePhoto(albumSlug: string, idx: number): Promise<Result<void>>
+  /** Sprint 22: bulk delete by id array. */
+  deletePhotos(ids: string[]): Promise<Result<number>>
+  /** Sprint 22: reorder photos within an album. */
+  reorderPhotos(albumSlug: string, orderedIds: string[]): Promise<Result<void>>
 }
 
 export interface TimelineWriteRepository {

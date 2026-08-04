@@ -22,6 +22,7 @@ import {
   timelineIdParamSchema,
   memberIdParamSchema,
 } from '../schemas/write-schemas'
+import { bulkDeleteMediaSchema, reorderMediaSchema } from '../schemas/media-bulk-schemas'
 
 export function createWriteController(service: WriteService) {
   /** Read actor from the authenticated request. */
@@ -85,6 +86,20 @@ export function createWriteController(service: WriteService) {
       const result = await service.deleteMedia(albumSlug, idx, actorId(request))
       if (!result.ok) throw new ApiError(result.error.code, result.error.message)
       return reply.send({ id, deleted: true })
+    },
+
+    async bulkDeleteMedia(request: FastifyRequest, reply: FastifyReply) {
+      const { ids } = parseOrThrow(bulkDeleteMediaSchema, request.body, 'payload bulk delete')
+      const result = await service.bulkDeleteMedia(ids, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
+      return reply.send({ deleted: result.value })
+    },
+
+    async reorderMedia(request: FastifyRequest, reply: FastifyReply) {
+      const { albumSlug, orderedIds } = parseOrThrow(reorderMediaSchema, request.body, 'payload reorder')
+      const result = await service.reorderMedia(albumSlug, orderedIds, actorId(request))
+      if (!result.ok) throw new ApiError(result.error.code, result.error.message)
+      return reply.send({ ok: true })
     },
 
     /* ── Timeline ───────────────────────────────────────────── */

@@ -174,6 +174,21 @@ export function createWriteService(deps: WriteServiceDeps) {
     return result
   }
 
+  async function bulkDeleteMedia(ids: string[], actorId?: string): Promise<Result<number>> {
+    const result = await media.deletePhotos(ids)
+    if (result.ok && result.value > 0) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'delete', entity: 'Photo', entityId: `${result.value} items`, metadata: { ids } })
+    }
+    return result
+  }
+
+  async function reorderMedia(albumSlug: string, orderedIds: string[], actorId?: string): Promise<Result<void>> {
+    const album = await readAlbums.getAlbum(albumSlug)
+    if (!album.ok) return album
+    if (!album.value) return err('not_found', 'Album tidak ditemukan.', { albumSlug })
+    return media.reorderPhotos(albumSlug, orderedIds)
+  }
+
   /* ── Timeline ──────────────────────────────────────────────── */
 
   async function createTimeline(input: CreateTimelineWriteInput, actorId?: string): Promise<Result<TimelineEntry>> {
@@ -269,6 +284,8 @@ export function createWriteService(deps: WriteServiceDeps) {
     createMember,
     updateMember,
     deleteMember,
+    bulkDeleteMedia,
+    reorderMedia,
   }
 }
 

@@ -169,6 +169,44 @@ export class PrismaWriteRepository
     }
   }
 
+  /* ── Sprint 22: bulk operations ────────────────────────────── */
+
+  async deletePhotos(ids: string[]): Promise<Result<number>> {
+    try {
+      let count = 0
+      await this.prisma.$transaction(async (tx) => {
+        for (const id of ids) {
+          const colon = id.lastIndexOf(':')
+          if (colon < 0) continue
+          const albumSlug = id.slice(0, colon)
+          const idx = Number(id.slice(colon + 1))
+          if (!Number.isInteger(idx)) continue
+          await tx.photo.delete({ where: { albumSlug_idx: { albumSlug, idx } } })
+          count++
+        }
+      })
+      return ok(count)
+    } catch (e) {
+      return mapWriteError(e, 'Photo')
+    }
+  }
+
+  async reorderPhotos(albumSlug: string, orderedIds: string[]): Promise<Result<void>> {
+    try {
+      await this.prisma.$transaction(
+        orderedIds.map((id, i) =>
+          this.prisma.photo.update({
+            where: { id },
+            data: { idx: i },
+          }),
+        ),
+      )
+      return ok(undefined)
+    } catch (e) {
+      return mapWriteError(e, 'Photo')
+    }
+  }
+
   /* ── Timeline ──────────────────────────────────────────────── */
 
   async createTimeline(input: CreateTimelineWriteInput): Promise<Result<TimelineEntry>> {

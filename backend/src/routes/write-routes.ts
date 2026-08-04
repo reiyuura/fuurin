@@ -26,6 +26,10 @@ export async function registerWriteRoutes(app: FastifyInstance, write: WriteServ
   app.patch('/media/:id',{ preHandler: editor },  c.updateMedia)
   app.delete('/media/:id',{ preHandler: admin },   c.deleteMedia)
 
+  /* Bulk operations */
+  app.delete('/media/bulk',{ preHandler: admin },   c.bulkDeleteMedia)
+  app.patch('/media/reorder',{ preHandler: editor }, c.reorderMedia)
+
   /* ── Timeline ─────────────────────────────────────────────── */
   app.post('/timeline',      { preHandler: editor },  c.createTimeline)
   app.patch('/timeline/:id', { preHandler: editor },  c.updateTimeline)
