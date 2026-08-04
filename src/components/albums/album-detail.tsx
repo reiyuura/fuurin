@@ -239,7 +239,7 @@ export function AlbumDetail({ album, photos, related }: AlbumDetailProps) {
               ))}
             </select>
             <Link
-              href={`/albums/${album.slug}/edit`}
+              href={`/editor/albums/${album.slug}`}
               className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground-strong transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               aria-label={`Edit album ${pick(album.title, locale)}`}
             >
