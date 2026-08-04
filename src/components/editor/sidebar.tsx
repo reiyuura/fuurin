@@ -1,0 +1,115 @@
+'use client'
+
+/**
+ * EditorSidebar — responsive sidebar navigation.
+ *
+ * Active route highlighted. Admin-only items hidden for editors.
+ * Collapses to hamburger on mobile.
+ */
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+import { Album, Image, LayoutDashboard, Menu, Trash2, Users, X } from 'lucide-react'
+import { useSession } from '@/components/auth/session-provider'
+import clsx from 'clsx'
+
+const links = [
+  { href: '/editor', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/editor/albums', icon: Album, label: 'Albums' },
+  { href: '/editor/media', icon: Image, label: 'Media' },
+  { href: '/editor/members', icon: Users, label: 'Members' },
+]
+
+export function EditorSidebar() {
+  const pathname = usePathname()
+  const { user } = useSession()
+  const [open, setOpen] = useState(false)
+
+  const isAdmin = user?.role === 'admin'
+
+  return (
+    <>
+      {/* Mobile toggle */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="fixed top-3 left-3 z-50 rounded-xl bg-card p-2 shadow-md lg:hidden"
+        aria-label="Toggle sidebar"
+      >
+        {open ? <X size={18} /> : <Menu size={18} />}
+      </button>
+
+      {/* Sidebar */}
+      <aside
+        className={clsx(
+          'fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border flex flex-col transition-transform lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        {/* Brand */}
+        <div className="flex h-16 items-center px-5 font-semibold text-base text-foreground-strong border-b border-border">
+          Fuurin Editor
+          {user && (
+            <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              {user.role}
+            </span>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {links.map((l) => {
+            const active = pathname === l.href || (l.href !== '/editor' && pathname.startsWith(l.href))
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className={clsx(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-foreground-strong hover:bg-hover',
+                )}
+              >
+                <l.icon size={16} aria-hidden="true" />
+                {l.label}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Footer — admin only */}
+        {isAdmin && (
+          <div className="border-t border-border p-3">
+            <p className="px-3 text-[10px] font-bold uppercase tracking-[.14em] text-subtle-foreground mb-2">
+              Admin
+            </p>
+            <Link
+              href="/editor/trash"
+              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-hover transition"
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              Trash
+            </Link>
+          </div>
+        )}
+
+        {/* Footer user */}
+        <div className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">
+          <Link href="/" className="hover:text-primary transition">
+            ← Kembali ke situs
+          </Link>
+        </div>
+      </aside>
+
+      {/* Overlay on mobile */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-black/20 lg:hidden"
+        />
+      )}
+    </>
+  )
+}
