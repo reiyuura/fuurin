@@ -86,7 +86,7 @@ export default function MediaLibraryPage() {
 
   // ── Selection ─────────────────────────────────────────────
   const toggle = (id: string) =>
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) { n.delete(id) } else { n.add(id) } return n })
   const selectAll = () => {
     if (selected.size === filtered.length) setSelected(new Set())
     else setSelected(new Set(filtered.map((m) => m.id)))
@@ -185,9 +185,6 @@ export default function MediaLibraryPage() {
       setReplacing(false)
       return
     }
-    const colon = item.id.lastIndexOf(':')
-    const albumSlug = item.id.slice(0, colon)
-    const idx = Number(item.id.slice(colon + 1))
     const res = await getApiClient().request({
       method: 'PATCH', path: `/media/${encodeURIComponent(item.id)}`,
       body: { src: upRes.data.url },

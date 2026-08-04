@@ -10,7 +10,6 @@
  * test — which is exactly the guarantee Sprint 16 must establish.
  */
 
-import { parseQueryParams } from '../../src/shared/paging'
 import type { QueryOptions } from '../../src/shared/paging'
 
 /**

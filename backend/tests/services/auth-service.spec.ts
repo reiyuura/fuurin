@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BcryptPasswordHasher } from '../../src/auth/password-hasher'
 import { createAuthService } from '../../src/services/auth-service'
-import { ok, err } from '../../src/shared/result'
+import { ok } from '../../src/shared/result'
 import type { AuthRepository } from '../../src/auth/auth-repository'
 
 const ENV = {

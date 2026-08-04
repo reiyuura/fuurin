@@ -7,7 +7,6 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import type { PrismaClient } from '@prisma/client'
 import { PrismaUserRepository } from '../../src/repositories/prisma-user-repository'
 import { truncateAll, getTestPrisma, disconnectTestPrisma } from '../helpers/setup-db'
-import { seedOwner } from '../helpers/seed-data'
 
 let prisma: PrismaClient
 let repo: PrismaUserRepository

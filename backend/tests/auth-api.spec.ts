@@ -14,7 +14,6 @@ import { AuthRepository } from '../src/auth/auth-repository'
 import { BcryptPasswordHasher } from '../src/auth/password-hasher'
 import { createAuthService } from '../src/services/auth-service'
 import { getTestPrisma, truncateAll, disconnectTestPrisma } from './helpers/setup-db'
-import { seedOwner } from './helpers/seed-data'
 import type { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 

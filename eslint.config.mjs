@@ -14,6 +14,24 @@ const eslintConfig = defineConfig([
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "@next/next/no-html-link-for-pages": "off",
+      // Sprint 25: underscore-prefixed params are intentional placeholders
+      // (interface conformance, stub methods). Track real unused vars only.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    // Editor internals: cover previews use blob:/object URLs (File.preview)
+    // and dynamic upload results — next/image can't handle these sources.
+    files: ["src/app/editor/**"],
+    rules: {
+      "@next/next/no-img-element": "off",
     },
   },
   // Override default ignores of eslint-config-next.
@@ -23,6 +41,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Sprint 25: compiled backend output — source is linted, dist is generated.
+    "backend/dist/**",
+    "backend/coverage/**",
   ]),
 ]);
 

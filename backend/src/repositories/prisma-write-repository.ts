@@ -234,12 +234,15 @@ export class PrismaWriteRepository
   async reorderPhotos(albumSlug: string, orderedIds: string[]): Promise<Result<void>> {
     try {
       await this.prisma.$transaction(
-        orderedIds.map((id, i) =>
-          this.prisma.photo.update({
-            where: { id },
-            data: { idx: i },
-          }),
-        ),
+        orderedIds.map((id, i) => {
+          // Domain id is `slug:idx` — resolve to the composite key.
+          const colon = id.lastIndexOf(':')
+          const idx = colon >= 0 ? Number(id.slice(colon + 1)) : NaN
+          const where = colon >= 0 && Number.isInteger(idx)
+            ? { albumSlug_idx: { albumSlug: id.slice(0, colon), idx } }
+            : { id } // fallback: raw Prisma cuid
+          return this.prisma.photo.update({ where: where as never, data: { idx: i } })
+        }),
       )
       return ok(undefined)
     } catch (e) {

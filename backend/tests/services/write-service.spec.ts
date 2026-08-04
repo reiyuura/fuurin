@@ -14,7 +14,7 @@ import type {
   MemberWriteRepository,
 } from '../../src/repositories/write-repositories'
 import type { AlbumRepository } from '../../src/repositories/album-repository'
-import { ok, err } from '../../src/shared/result'
+import { ok } from '../../src/shared/result'
 import type { Album, MediaItem, TimelineEntry, Member } from '../../src/domain/models'
 
 const album = (slug: string): Album => ({
@@ -58,10 +58,10 @@ function makeSvc(opts: {
     listTimelineEntries: async () => ok([]),
   }
   const writes = {
-    createAlbum: async (input: any) => ok(opts.createdAlbum ?? { ...album(input.slug), ...input }),
+    createAlbum: async (input: { slug: string } & Record<string, unknown>) => ok(opts.createdAlbum ?? { ...album(input.slug), ...input }),
     updateAlbum: async () => ok(opts.updatedAlbum ?? album('x')),
     deleteAlbum: async () => ok(undefined),
-    createPhoto: async (input: any) => ok(opts.createdMedia ?? media(`${input.albumSlug}:${input.idx}`, input.albumSlug, input.idx)),
+    createPhoto: async (input: { albumSlug: string; idx: number } & Record<string, unknown>) => ok(opts.createdMedia ?? media(`${input.albumSlug}:${input.idx}`, input.albumSlug, input.idx)),
     updatePhoto: async () => ok(opts.createdMedia ?? media('x', 'a', 0)),
     deletePhoto: async () => ok(undefined),
     createTimeline: async () => ok(opts.createdTimeline ?? timeline('tl')),

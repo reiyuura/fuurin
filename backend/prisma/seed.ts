@@ -67,7 +67,8 @@ function deriveOrientation(seed: number): 'landscape' | 'portrait' {
 
 async function seedUser(): Promise<string> {
   // Sprint 20A: hash the seed password so login works end-to-end.
-  const bcrypt = await import('bcryptjs')
+  const bcryptModule = await import('bcryptjs')
+  const bcrypt = 'default' in bcryptModule ? (bcryptModule.default as typeof import('bcryptjs')) : bcryptModule
   const passwordHash = await bcrypt.hash('rei12345', 10)
   const u = await prisma.user.upsert({
     where: { email: 'rei@fuurin.id' },

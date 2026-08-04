@@ -15,7 +15,7 @@
  * it never navigates.
  */
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import type { Permission, Role } from '@/types/auth'
@@ -39,9 +39,12 @@ export function useRequireAuth(opts: UseRequireAuthOpts = {}): RequireAuthResult
   const searchParams = useSearchParams()
   const { status, user } = useAuth()
 
-  // Inline role check — simple enough not to need a separate module.
-  const hasAnyRole = (roles: readonly string[]) => !!user && roles.includes(user.role)
-  const hasPermission = (_perm: string) => !!user // simplified: auth = permitted
+  // Inline role check — wrapped in useCallback to stabilize useEffect deps.
+  const hasAnyRole = useCallback(
+    (roles: readonly string[]) => !!user && roles.includes(user.role),
+    [user],
+  )
+  const hasPermission = useCallback((_perm: string) => !!user, [user])
 
   useEffect(() => {
     if (status === 'loading') return

@@ -144,7 +144,9 @@ describe('Authorization — Anonymous', () => {
 describe('Audit', () => {
   it('audit row after create', async () => {
     await req('POST', '/albums', albumBody, adminToken)
-    const rows = await prisma.auditLog.findMany({ where: { entity: 'Album', action: 'create' } })
+    const rows = await prisma.auditLog.findMany({
+      where: { entity: 'Album', action: 'create', entityId: 'x' },
+    })
     expect(rows.length).toBeGreaterThanOrEqual(1)
     expect(rows[0].entityId).toBe('x')
   })
@@ -152,14 +154,18 @@ describe('Audit', () => {
   it('audit row after update', async () => {
     await req('POST', '/albums', albumBody, adminToken)
     await req('PATCH', '/albums/x', { title: { en: 'Updated' } }, adminToken)
-    const rows = await prisma.auditLog.findMany({ where: { entity: 'Album', action: 'update' } })
+    const rows = await prisma.auditLog.findMany({
+      where: { entity: 'Album', action: 'update', entityId: 'x' },
+    })
     expect(rows.length).toBeGreaterThanOrEqual(1)
   })
 
   it('audit row after delete', async () => {
     await req('POST', '/albums', albumBody, adminToken)
     await req('DELETE', '/albums/x', undefined, adminToken)
-    const rows = await prisma.auditLog.findMany({ where: { entity: 'Album', action: 'delete' } })
+    const rows = await prisma.auditLog.findMany({
+      where: { entity: 'Album', action: 'delete', entityId: 'x' },
+    })
     expect(rows.length).toBeGreaterThanOrEqual(1)
   })
 

@@ -3,7 +3,7 @@
  * fixture DTOs; asserts wire paths/query params and DTO→domain mapping.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { ApiClient, ApiRequest, ApiResponse } from '@/lib/repositories/api-client'
 import { FetchAlbumRepository } from '@/lib/repositories/fetch-album-repository'
 import { FetchMediaRepository } from '@/lib/repositories/fetch-media-repository'

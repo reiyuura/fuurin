@@ -9,7 +9,7 @@
 import type { Result } from '../shared/result'
 import { err, ok } from '../shared/result'
 import type { DraftRepository, DraftRow } from '../repositories/draft-repository'
-import type { AlbumWriteRepository, CreateAlbumWriteInput } from '../repositories/write-repositories'
+import type { AlbumWriteRepository } from '../repositories/write-repositories'
 import type { AlbumRepository } from '../repositories/album-repository'
 
 export type DraftServiceDeps = {

@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Check, Loader2, Upload } from 'lucide-react'
+import { Loader2, Upload } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { useToast } from '@/components/ui/toast'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
@@ -107,8 +107,6 @@ export default function EditDraftPage() {
     setUploadingCover(false)
   }
 
-  const handlePublish = async () => { /* same as new draft */ }
-
   if (loading) return <div className="animate-pulse space-y-6"><div className="h-7 w-48 rounded-xl bg-hover" /><div className="h-10 w-full rounded-xl bg-hover" /><div className="h-24 w-full rounded-xl bg-hover" /></div>
 
   return (
@@ -149,7 +147,7 @@ export default function EditDraftPage() {
       )}
       <div className="flex gap-4 items-start">
         <label className={clsx('flex aspect-video w-48 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-card transition hover:border-primary/40', coverPreview && 'border-solid')}>
-          {coverPreview ? <img src={coverPreview} className="h-full w-full rounded-xl object-cover" /> :
+          {coverPreview ? <img src={coverPreview} alt="Pratinjau cover" className="h-full w-full rounded-xl object-cover" /> :
             <><Upload size={20} className="text-muted-foreground" /><span className="text-[11px] text-muted-foreground">Ganti cover</span></>}
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCoverFile(f); setCoverPreview(URL.createObjectURL(f)) } }} className="hidden" />
         </label>

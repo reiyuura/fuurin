@@ -14,7 +14,6 @@ import { AuthRepository } from '../src/auth/auth-repository'
 import { BcryptPasswordHasher } from '../src/auth/password-hasher'
 import { createAuthService } from '../src/services/auth-service'
 import fs from 'node:fs'
-import path from 'node:path'
 
 const ENV = {
   NODE_ENV: 'test' as const, PORT: '4006', HOST: '127.0.0.1',

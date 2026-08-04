@@ -12,6 +12,8 @@ import { loggerOptions } from './plugins/logger'
 import { configureRequestId } from './plugins/request-id'
 import { configureErrorHandler } from './plugins/error-handler'
 import { configureAuthGuard } from './plugins/auth-guard'
+import { configureSecurityHeaders } from './plugins/security-headers'
+import { configureRateLimits } from './plugins/rate-limit'
 import { registerHealthRoutes } from './routes/health-routes'
 import { registerReadRoutes } from './routes/read-routes'
 import { registerWriteRoutes } from './routes/write-routes'
@@ -61,6 +63,8 @@ export async function buildApp(
   await app.register(multipart, { limits: { fileSize: env.UPLOAD_MAX_BYTES } })
   configureRequestId(app)
   configureErrorHandler(app)
+  configureSecurityHeaders(app)
+  configureRateLimits(app, env)
   configureAuthGuard(app, env)
 
   // Storage provider.

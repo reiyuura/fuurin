@@ -12,8 +12,6 @@ import { parseQueryParams } from '../shared/paging'
 
 /* ── Shared query param schema ─────────────────────────────── */
 
-const direction = z.enum(['asc', 'desc'])
-
 /** `key:dir` or comma-joined `a:asc,b:desc` — matches toQueryParams. */
 export const sortSpecSchema = z
   .string()

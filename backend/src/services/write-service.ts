@@ -26,7 +26,7 @@ import type {
 } from '../repositories/write-repositories'
 import type { AlbumRepository } from '../repositories/album-repository'
 import type { Result } from '../shared/result'
-import { err, ok } from '../shared/result'
+import { err } from '../shared/result'
 import type { Album, Member, MediaItem, TimelineEntry } from '../domain/models'
 
 export type WriteServiceDeps = {
@@ -64,14 +64,14 @@ export function createWriteService(deps: WriteServiceDeps) {
    * but the in-flight object shape still matters when callers later
    * compare what was sent.
    */
-  function stripUndefined(v: unknown): unknown {
+  function stripUndefined<T>(v: T): T {
     if (v === undefined || v === null) return v
     if (typeof v !== 'object') return v
     const out: Record<string, unknown> = {}
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
       if (val !== undefined) out[k] = val
     }
-    return out
+    return out as T
   }
 
   /* ── Album ─────────────────────────────────────────────────── */
@@ -182,7 +182,7 @@ export function createWriteService(deps: WriteServiceDeps) {
     return result
   }
 
-  async function reorderMedia(albumSlug: string, orderedIds: string[], actorId?: string): Promise<Result<void>> {
+  async function reorderMedia(albumSlug: string, orderedIds: string[], _actorId?: string): Promise<Result<void>> {
     const album = await readAlbums.getAlbum(albumSlug)
     if (!album.ok) return album
     if (!album.value) return err('not_found', 'Album tidak ditemukan.', { albumSlug })

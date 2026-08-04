@@ -9,7 +9,6 @@
  */
 
 import type { PrismaClient, Prisma } from '@prisma/client'
-import type { UserRole } from '../domain/auth'
 import { safe } from '../repositories/queries/prisma-error'
 import { ok, type Result } from '../shared/result'
 

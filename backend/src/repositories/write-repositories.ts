@@ -11,7 +11,6 @@ import type {
   AlbumVisibility,
   Member,
   MediaItem,
-  Photo,
   Season,
   TimelineEntry,
 } from '../domain/models'
@@ -94,8 +93,8 @@ export type CreateTimelineWriteInput = {
   date: string
   title: string | Record<string, string>
   description: string | Record<string, string>
-  albumId?: string
-  categoryTag?: string
+  albumId?: string | null
+  categoryTag?: string | null
   photo: string
 }
 
@@ -104,7 +103,7 @@ export type UpdateTimelineWriteInput = Partial<{
   title: string | Record<string, string>
   description: string | Record<string, string>
   albumId: string | null
-  categoryTag: string
+  categoryTag: string | null
   photo: string
 }>
 

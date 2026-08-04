@@ -2,8 +2,8 @@
  * DraftRepository — domain interface for album drafts.
  */
 
-import type { PrismaClient, Prisma } from '@prisma/client'
-import { err, ok, type Result } from '../shared/result'
+import type { PrismaClient } from '@prisma/client'
+import { ok, type Result } from '../shared/result'
 import { safe } from '../repositories/queries/prisma-error'
 
 export type DraftRow = {

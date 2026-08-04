@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import { searchAll, type SearchResults } from '@/lib/search-utils'
 import { addHistory, clearHistory, loadHistory, removeHistory } from '@/lib/search-history'
@@ -138,7 +138,7 @@ export function useSearch() {
 /* ── Search execution — repository-backed ─────────────────────── */
 
 export function useSearchResults(): SearchResults {
-  const { debouncedQuery, searching, setSearching } = useSearch()
+  const { debouncedQuery, setSearching } = useSearch()
   const { locale } = useLocale()
   const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
 

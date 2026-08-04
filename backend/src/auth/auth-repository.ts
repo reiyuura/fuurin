@@ -7,8 +7,8 @@
 
 import type { PrismaClient } from '@prisma/client'
 import type { SessionUser, UserRole } from '../domain/auth'
-import { err, ok, type Result } from '../shared/result'
-import { hashToken } from './jwt'
+import { ok, type Result } from '../shared/result'
+
 import { safe } from '../repositories/queries/prisma-error'
 
 export class AuthRepository {

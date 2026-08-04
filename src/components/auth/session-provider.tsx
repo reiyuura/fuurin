@@ -10,8 +10,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getEnvironment } from '@/lib/config/env'
-import { FetchAuthRepository, getAccessToken, setAccessToken }
-  from '@/lib/repositories/auth-repository'
+import { FetchAuthRepository } from '@/lib/repositories/auth-repository'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import type { SessionUser } from '@/lib/repositories/auth-repository'
 

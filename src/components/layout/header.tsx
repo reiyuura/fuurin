@@ -19,7 +19,6 @@ import {
 
   X,
 } from 'lucide-react'
-import { pick } from '@/lib/data'
 import { LOCALES, useLocale, type DictKey } from '@/lib/i18n'
 import { useSearch } from '@/lib/search'
 import { useTheme } from '@/lib/theme'
@@ -35,7 +34,6 @@ const NAV: { key: DictKey; href: string; icon: typeof Home }[] = [
   { key: 'nav.favorites', href: '/favorites', icon: Heart },
 ]
 
-const NOTIFS: DictKey[] = ['notif.n1', 'notif.n2', 'notif.n3']
 
 export function Header({ active = '/' }: { active?: string }) {
   const { locale, setLocale, t } = useLocale()

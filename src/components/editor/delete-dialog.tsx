@@ -10,6 +10,7 @@ import { Trash2 } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import { FetchAlbumRepository } from '@/lib/repositories/fetch-album-repository'
 import { useToast } from '@/components/ui/toast'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 
 type Props = { slug: string; title: string }
 
@@ -18,6 +19,7 @@ export function DeleteAlbumButton({ slug, title }: Props) {
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const dialogRef = useFocusTrap<HTMLDivElement>(open)
 
   const handleDelete = async () => {
     setLoading(true)
@@ -46,10 +48,13 @@ export function DeleteAlbumButton({ slug, title }: Props) {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setOpen(false)}>
           <div
+            ref={dialogRef}
+            role="dialog" aria-modal="true" aria-labelledby="delete-album-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl"
           >
-            <h2 className="text-base font-bold text-foreground-strong">Hapus Album</h2>
+            <h2 id="delete-album-title" className="text-base font-bold text-foreground-strong">Hapus Album</h2>
             <p className="mt-2 text-[13px] text-muted-foreground">
               Album <strong className="text-foreground-strong">{title}</strong> akan dihapus permanen. Semua foto di dalamnya juga akan hilang.
             </p>

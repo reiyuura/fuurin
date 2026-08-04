@@ -18,8 +18,8 @@ export async function registerAuthRoutes(
   const c = createAuthController(auth, env)
 
   /* ── Auth ─────────────────────────────────────────────────── */
-  app.post('/auth/login', c.login)
-  app.post('/auth/refresh', c.refresh)
+  app.post('/auth/login', { preHandler: [app.rateLimitAuth] }, c.login)
+  app.post('/auth/refresh', { preHandler: [app.rateLimitAuth] }, c.refresh)
   app.post('/auth/logout', c.logout)
 
   /* ── Users ────────────────────────────────────────────────── */

@@ -18,11 +18,10 @@ import { MockApiClient } from './mock-api-client'
 import { authProvider } from '@/lib/auth/auth-provider'
 import type { SessionAccessor } from '@/lib/api/session-accessor'
 import {
-  defaultTokenResolver,
 } from '@/lib/api/session-accessor'
 import { FetchApiClient } from '@/lib/api/fetch-api-client'
 import { noopLogger } from '@/lib/api/logger'
-import { FetchAuthRepository, getAccessToken, setAccessToken, type AuthRepository } from './auth-repository'
+import { FetchAuthRepository, getAccessToken, setAccessToken } from './auth-repository'
 import { getEnvironment } from '@/lib/config/env'
 import type { ApiConfig } from '@/types/api-config'
 
