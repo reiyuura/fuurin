@@ -11,8 +11,8 @@ export async function registerDraftRoutes(app: FastifyInstance, drafts: DraftSer
   const editor = [app.requireAuth, app.requireRole('admin', 'editor')]
   const admin = [app.requireAuth, app.requireRole('admin')]
 
-  app.get('/drafts', c.list)
-  app.get('/drafts/:slug', c.get)
+  app.get('/drafts', { preHandler: editor }, c.list)
+  app.get('/drafts/:slug', { preHandler: editor }, c.get)
   app.post('/drafts', { preHandler: editor }, c.create)
   app.patch('/drafts/:slug', { preHandler: editor }, c.update)
   app.post('/drafts/:slug/publish', { preHandler: editor }, c.publish)
