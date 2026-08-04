@@ -17,6 +17,7 @@ import { registerReadRoutes } from './routes/read-routes'
 import { registerWriteRoutes } from './routes/write-routes'
 import { registerAuthRoutes } from './routes/auth-routes'
 import { registerUploadRoutes } from './routes/upload-routes'
+import { registerStatsRoutes } from './routes/stats-routes'
 import { createStorageProvider, type StorageProvider } from './storage'
 import { createPrismaRepositories, type Repositories } from './repositories/registry'
 import { createServices, type Services } from './services'
@@ -88,6 +89,7 @@ export async function buildApp(
       await registerWriteRoutes(api, services.writes)
       await registerAuthRoutes(api, auth, env)
       await registerUploadRoutes(api, uploadService)
+      await registerStatsRoutes(api)
     },
     { prefix: env.API_BASE_PATH },
   )

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, Clock } from 'lucide-react'
-import { STATS } from '@/lib/data'
+import { useStats } from '@/hooks/use-stats'
 import { useLocale, type DictKey } from '@/lib/i18n'
 import { Fuurin, Petal, Blossom } from '@/components/ui/decor'
 
@@ -15,6 +15,7 @@ function greetKey(hour: number): DictKey {
 }
 
 export function HeroSection() {
+  const stats = useStats()
   const { t } = useLocale()
   const [key, setKey] = useState<DictKey>('greet.day')
 
@@ -107,9 +108,9 @@ export function HeroSection() {
             className="flex flex-wrap gap-x-9 gap-y-3.5"
           >
             {[
-              { v: STATS.members, k: 'stats.members' as DictKey },
-              { v: STATS.albums, k: 'stats.albums' as DictKey },
-              { v: STATS.photos.toLocaleString('en-US'), k: 'stats.photos' as DictKey },
+              { v: stats.members, k: 'stats.members' as DictKey },
+              { v: stats.albums, k: 'stats.albums' as DictKey },
+              { v: stats.photos.toLocaleString('en-US'), k: 'stats.photos' as DictKey },
             ].map(({ v, k }, i) => (
               <motion.div
                 key={k}

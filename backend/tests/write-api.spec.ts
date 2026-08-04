@@ -375,3 +375,14 @@ describe('DELETE /members/:id', () => {
     expect(count).toBe(0)
   })
 })
+describe('GET /stats', () => {
+  it('returns public stats', async () => {
+    await req('POST', '/albums', albumBody)
+    const res = await app.inject({ method: 'GET', url: '/api/v1/stats' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.totalAlbums).toBeGreaterThanOrEqual(1)
+    expect(typeof body.totalPhotos).toBe('number')
+    expect(typeof body.totalMembers).toBe('number')
+  })
+})

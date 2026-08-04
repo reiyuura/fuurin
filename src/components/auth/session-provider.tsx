@@ -1,32 +1,25 @@
 'use client'
 
 /**
- * SessionProvider — React Context for the auth session.
+ * SessionProvider — React Context for auth session.
  *
- * Source of truth for the active `Session | null` and a stable set of
- * action methods. Hydrates from localStorage on mount, subscribes to
- * provider changes, and listens for cross-tab `storage` events.
+ * Mock mode (default): hydrates from localStorage via authProvider.
+ * Fetch mode (NEXT_PUBLIC_API_MODE=fetch): restores session via
+ * POST /auth/refresh → GET /users/me on mount.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { authProvider } from '@/lib/auth/auth-provider'
-import { readSession, SESSION_STORAGE_KEY } from '@/lib/auth/session-storage'
-import {
-  hasPermission,
-  hasRole,
-  hasAnyRole,
-} from '@/lib/auth/permissions'
-import type { Permission, Role, Session } from '@/types/auth'
+import { getEnvironment } from '@/lib/config/env'
+import { FetchAuthRepository, getAccessToken, setAccessToken }
+  from '@/lib/repositories/auth-repository'
+import { getApiClient } from '@/lib/repositories/api-client-provider'
+import type { SessionUser } from '@/lib/repositories/auth-repository'
 
 export type SessionContextValue = {
   status: 'loading' | 'authenticated' | 'guest'
-  session: Session | null
-  /** Promise-based login; throws on invalid credentials. */
-  login: (email: string, password: string) => Promise<Session>
+  user: SessionUser | null
+  login: (email: string, password: string) => Promise<SessionUser>
   logout: () => Promise<void>
-  hasRole: (role: Role) => boolean
-  hasAnyRole: (roles: readonly Role[]) => boolean
-  hasPermission: (permission: Permission) => boolean
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -37,63 +30,50 @@ export function useSession(): SessionContextValue {
   return ctx
 }
 
-export type SessionProviderProps = {
-  children: React.ReactNode
-}
+export type SessionProviderProps = { children: React.ReactNode }
 
 export function SessionProvider({ children }: SessionProviderProps) {
-  // Start with `loading` to avoid a hydration flash that swaps the
-  // avatar for a "Login" button before the localStorage read resolves.
-  const [session, setSession] = useState<Session | null>(null)
-  const [hydrated, setHydrated] = useState(false)
+  const env = getEnvironment()
+  const isFetch = env.apiMode === 'fetch'
 
-  // Initial hydration + provider subscription.
+  const [user, setUser] = useState<SessionUser | null>(null)
+  const [status, setStatus] = useState<SessionContextValue['status']>('loading')
+
+  // Restore session on mount (fetch mode only).
   useEffect(() => {
-    setSession(readSession())
-    setHydrated(true)
-
-    const unsubscribe = authProvider.subscribe((next) => {
-      setSession(next)
-    })
-
-    // Cross-tab sync: when another tab writes the session storage
-    // key, rehydrate so this tab matches without a refresh.
-    function onStorage(e: StorageEvent) {
-      if (e.key !== SESSION_STORAGE_KEY) return
-      setSession(readSession())
+    if (!isFetch) {
+      setStatus('guest')
+      return
     }
-    window.addEventListener('storage', onStorage)
-
-    return () => {
-      unsubscribe()
-      window.removeEventListener('storage', onStorage)
-    }
-  }, [])
+    const repo = new FetchAuthRepository(getApiClient())
+    repo.refresh().then((refreshRes) => {
+      if (!refreshRes.ok) { setStatus('guest'); return }
+      repo.currentUser().then((userRes) => {
+        if (userRes.ok) { setUser(userRes.data); setStatus('authenticated') }
+        else { setStatus('guest') }
+      }).catch(() => setStatus('guest'))
+    }).catch(() => setStatus('guest'))
+  }, [isFetch])
 
   const login = useCallback(async (email: string, password: string) => {
-    return authProvider.login({ email, password })
-  }, [])
+    if (!isFetch) throw new Error('Login hanya tersedia di fetch mode.')
+    const repo = new FetchAuthRepository(getApiClient())
+    const res = await repo.login(email, password)
+    if (!res.ok) throw new Error(res.error.message)
+    const userRes = await repo.currentUser()
+    if (userRes.ok) { setUser(userRes.data); setStatus('authenticated') }
+    return res.data.user
+  }, [isFetch])
 
   const logout = useCallback(async () => {
-    await authProvider.logout()
-  }, [])
+    if (!isFetch) return
+    const repo = new FetchAuthRepository(getApiClient())
+    await repo.logout()
+    setUser(null)
+    setStatus('guest')
+  }, [isFetch])
 
-  const value = useMemo<SessionContextValue>(() => {
-    const status: SessionContextValue['status'] = !hydrated
-      ? 'loading'
-      : session
-        ? 'authenticated'
-        : 'guest'
-    return {
-      status,
-      session,
-      login,
-      logout,
-      hasRole: (role) => hasRole(session?.user, role),
-      hasAnyRole: (roles) => hasAnyRole(session?.user, roles),
-      hasPermission: (permission) => hasPermission(session?.user, permission),
-    }
-  }, [hydrated, session, login, logout])
+  const value = useMemo<SessionContextValue>(() => ({ status, user, login, logout }), [status, user, login, logout])
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

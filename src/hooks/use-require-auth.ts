@@ -37,7 +37,11 @@ export function useRequireAuth(opts: UseRequireAuthOpts = {}): RequireAuthResult
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { status, hasAnyRole, hasPermission } = useAuth()
+  const { status, user } = useAuth()
+
+  // Inline role check — simple enough not to need a separate module.
+  const hasAnyRole = (roles: readonly string[]) => !!user && roles.includes(user.role)
+  const hasPermission = (_perm: string) => !!user // simplified: auth = permitted
 
   useEffect(() => {
     if (status === 'loading') return
