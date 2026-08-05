@@ -44,6 +44,7 @@ export function SearchPalette() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
   const [activeIndex, setActiveIndex] = useState(-1)
 
   /* ── Flattened options for keyboard navigation (UI layer) ──── */
@@ -59,8 +60,12 @@ export function SearchPalette() {
 
   useEffect(() => {
     if (open) {
+      triggerRef.current = document.activeElement as HTMLElement
       inputRef.current?.focus()
       setActiveIndex(-1)
+    } else if (triggerRef.current) {
+      triggerRef.current.focus()
+      triggerRef.current = null
     }
   }, [open])
 

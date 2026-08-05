@@ -88,9 +88,9 @@ export function PhotoCard({
         }}
         aria-label={fav ? t('favorites.remove') : t('favorites.add')}
         aria-pressed={fav}
-        className={`group/fav absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full backdrop-blur-md transition duration-300 hover:scale-110 focus-visible:outline-none after:absolute after:-inset-1.5 after:rounded-full after:content-[''] ${ fav ? 'bg-card/92 text-primary shadow-[0_3px_12px_rgba(200,124,141,0.32)] dark:bg-[#2a2624]/88 dark:text-primary-ink' : 'bg-card/65 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 dark:bg-[#2a2624]/60 ' }`}
-      >
-        <Heart size={15} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" />
+        className={`group/fav absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full backdrop-blur-md transition duration-300 hover:scale-110 focus-visible:outline-none after:absolute after:-inset-1.5 after:rounded-full after:content-[''] ${ fav ? 'bg-card/92 text-primary shadow-[0_3px_12px_rgba(200,124,141,0.32)] dark:bg-[#2a2624]/88 dark:text-primary-ink' : 'bg-card/65 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 dark:bg-[#2a2624]/60 '}`}
+        >
+        <Heart size={15} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" className={`transition-transform duration-300 ${fav ? 'scale-110' : 'scale-100'}`} />
       </button>
 
       {/* Selection checkbox — only visible in selection mode */}

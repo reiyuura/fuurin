@@ -273,7 +273,7 @@ export function PhotoViewer({
                 : 'border-border bg-card text-muted-foreground hover:text-primary',
             )}
           >
-            <Heart size={16} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" />
+            <Heart size={16} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" className={`transition-transform duration-300 ${fav ? 'scale-110' : 'scale-100'}`} />
             <span className="sm:hidden">{fav ? t('favorites.remove') : t('favorites.add')}</span>
           </button>
 

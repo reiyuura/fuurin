@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, Hash, Heart, Shuffle } from 'lucide-react'
+import Link from 'next/link'
 import {
   POPULAR_TAGS,
   TODAY_MEMORY,
@@ -40,7 +41,7 @@ export function UpcomingCard() {
 function UpcomingRow({ event, locale }: { event: UpcomingEvent; locale: 'ja' | 'id' | 'en' }) {
   return (
     <li>
-      <a
+      <Link
         href="/timeline"
         className="group flex items-center gap-3 rounded-2xl p-2 transition duration-300 hover:translate-x-0.5 hover:bg-hover"
       >
@@ -63,7 +64,7 @@ function UpcomingRow({ event, locale }: { event: UpcomingEvent; locale: 'ja' | '
           height={40}
           className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-white/70 dark:ring-white/10"
         />
-      </a>
+      </Link>
     </li>
   )
 }
@@ -147,13 +148,13 @@ export function TodayMemoryCard({ recentPhotos }: SidebarProps) {
         </figcaption>
       </figure>
 
-      <a
+      <Link
         href="/favorites"
         className="flex items-center justify-center gap-1.5 border-t border-border/50 py-3 text-[11.5px] font-medium tracking-wide text-primary transition duration-300 hover:bg-hover dark:text-primary-ink"
       >
         {t('nav.favorites')}
         <ArrowRight size={11} aria-hidden="true" />
-      </a>
+      </Link>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Eye, Images } from 'lucide-react'
 import { pick, type Album } from '@/lib/data'
 import { useLocale } from '@/lib/i18n'
@@ -29,7 +30,7 @@ export function FeaturedAlbums({ albums }: FeaturedAlbumsProps) {
             transition={{ type: 'spring', stiffness: 240, damping: 20 }}
             className="w-[224px] shrink-0 snap-start"
           >
-            <a
+            <Link
               href={`/albums/${a.slug}`}
               className="card-paper shadow-paper group block rounded-[1.5rem] border border-border/50 p-2.5 pb-0 transition duration-300 hover:border-primary/25 hover:shadow-[0_18px_42px_rgba(200,124,141,0.18)]"
             >
@@ -54,7 +55,7 @@ export function FeaturedAlbums({ albums }: FeaturedAlbumsProps) {
                   {pick(a.period, locale)}
                 </p>
               </div>
-            </a>
+            </Link>
           </motion.li>
         ))}
         </ul>

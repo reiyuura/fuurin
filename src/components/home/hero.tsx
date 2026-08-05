@@ -4,22 +4,27 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, Clock } from 'lucide-react'
+import Link from 'next/link'
 import { useStats } from '@/hooks/use-stats'
 import { useLocale, type DictKey } from '@/lib/i18n'
+import { useSession } from '@/components/auth/session-provider'
 import { Fuurin, Petal, Blossom } from '@/components/ui/decor'
 
-function greetKey(hour: number): DictKey {
-  if (hour < 11) return 'greet.morning'
-  if (hour < 18) return 'greet.day'
-  return 'greet.evening'
+function greetKey(hour: number, authenticated: boolean): DictKey {
+  const prefix = authenticated ? 'greet.' : 'greet.guest.'
+  if (hour < 11) return `${prefix}morning` as DictKey
+  if (hour < 18) return `${prefix}day` as DictKey
+  return `${prefix}evening` as DictKey
 }
 
 export function HeroSection() {
   const stats = useStats()
   const { t } = useLocale()
-  const [key, setKey] = useState<DictKey>('greet.day')
+  const { status } = useSession()
+  const authenticated = status === 'authenticated'
+  const [key, setKey] = useState<DictKey>(greetKey(12, false))
 
-  useEffect(() => setKey(greetKey(new Date().getHours())), [])
+  useEffect(() => setKey(greetKey(new Date().getHours(), authenticated)), [authenticated])
 
   return (
     <section className="group relative overflow-hidden rounded-[2rem] border border-white/[0.08] shadow-[0_18px_52px_rgba(0,0,0,0.28)]">
@@ -87,7 +92,7 @@ export function HeroSection() {
               transition={{ delay: 0.3, duration: 0.7 }}
               className="text-[16px] font-medium leading-relaxed text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)] sm:text-[17px]"
             >
-              {t('greet.welcome')}
+              {t(authenticated ? 'greet.welcome' : 'greet.guest.welcome')}
             </motion.p>
             {/* Description — white 70% */}
             <motion.p
@@ -140,7 +145,7 @@ export function HeroSection() {
             className="flex flex-wrap gap-4"
           >
             {/* Primary CTA — sakura pink gradient */}
-            <a
+            <Link
               href="/albums"
               className="group/cta inline-flex items-center gap-2.5 rounded-full bg-gradient-to-br from-[#d98fa1] via-[#c87c8d] to-[#ba6d7f] px-7 py-3.5 text-[13.5px] font-semibold tracking-wide text-white shadow-[0_10px_28px_rgba(200,124,141,0.38),0_2px_8px_rgba(200,124,141,0.28)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(200,124,141,0.50),0_4px_12px_rgba(200,124,141,0.35)]"
             >
@@ -150,15 +155,15 @@ export function HeroSection() {
                 aria-hidden="true"
                 className="transition-transform duration-300 group-hover/cta:translate-x-1"
               />
-            </a>
+            </Link>
             {/* Secondary CTA — translucent white glass */}
-            <a
+            <Link
               href="/timeline"
               className="group/cta inline-flex items-center gap-2.5 rounded-full border border-white/[0.18] bg-white/[0.10] px-7 py-3.5 text-[13.5px] font-semibold tracking-wide text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.32] hover:bg-white/[0.16] hover:text-white hover:shadow-[0_8px_22px_rgba(0,0,0,0.24)]"
             >
               {t('greet.ctaTimeline')}
               <Clock size={14} aria-hidden="true" />
-            </a>
+            </Link>
           </motion.div>
         </div>
 

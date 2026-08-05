@@ -193,10 +193,18 @@ const DICT = {
   'greet.morning': { ja: 'おはよう、Reiさん🌸', id: 'Selamat pagi, Rei🌸', en: 'Good morning, Rei🌸' },
   'greet.day': { ja: 'こんにちは、Reiさん🌸', id: 'Selamat siang, Rei🌸', en: 'Good afternoon, Rei🌸' },
   'greet.evening': { ja: 'こんばんは、Reiさん🌸', id: 'Selamat malam, Rei🌸', en: 'Good evening, Rei🌸' },
+  'greet.guest.morning': { ja: 'おはようございます🌸', id: 'Selamat pagi🌸', en: 'Good morning🌸' },
+  'greet.guest.day': { ja: 'こんにちは🌸', id: 'Selamat siang🌸', en: 'Good afternoon🌸' },
+  'greet.guest.evening': { ja: 'こんばんは🌸', id: 'Selamat malam🌸', en: 'Good evening🌸' },
   'greet.welcome': {
     ja: '風鈴のクラスへおかえりなさい',
     id: 'Selamat datang kembali di Fuurin no Class',
     en: 'Welcome back to Fuurin no Class',
+  },
+  'greet.guest.welcome': {
+    ja: '風鈴のクラスへようこそ',
+    id: 'Selamat datang di Fuurin no Class',
+    en: 'Welcome to Fuurin no Class',
   },
   'greet.welcomeShort': { ja: 'おかえりなさい！', id: 'Selamat datang kembali!', en: 'Welcome back!' },
   'greet.sub': {

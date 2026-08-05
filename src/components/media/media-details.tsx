@@ -23,7 +23,7 @@ type MediaDetailsProps = {
  * no listeners, refs, or layout nodes exist.
  */
 export function MediaDetails({ item, onClose }: MediaDetailsProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const { isFavorite, toggle, ready } = useFavorites()
   const fav = ready && item ? isFavorite(item.src) : false
 
@@ -107,7 +107,8 @@ export function MediaDetails({ item, onClose }: MediaDetailsProps) {
               {pick(item.ago, locale)}
             </Row>
             <Row icon={<Heart size={13} aria-hidden="true" />}>
-              {item.likes} suka
+              {item.likes}{' '}
+              <span className="text-subtle-foreground">{t('today.likes')}</span>
             </Row>
             <Row icon={<span className="text-[10px] font-bold">O</span>}>
               {item.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
