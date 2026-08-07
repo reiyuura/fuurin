@@ -142,39 +142,42 @@ describe('Authorization — Anonymous', () => {
 /* ── Audit ───────────────────────────────────────────────────── */
 
 describe('Audit', () => {
+  // Audit logging is fire-and-forget (`void audit.log`) by design —
+  // poll until the row lands instead of assuming synchronous writes.
+  const pollAudit = (where: { entity: string; action: string; entityId: string }) =>
+    expect.poll(
+      () => prisma.auditLog.count({ where }),
+      { timeout: 2_000, interval: 50 },
+    )
+
   it('audit row after create', async () => {
     await req('POST', '/albums', albumBody, adminToken)
-    const rows = await prisma.auditLog.findMany({
-      where: { entity: 'Album', action: 'create', entityId: 'x' },
-    })
-    expect(rows.length).toBeGreaterThanOrEqual(1)
-    expect(rows[0].entityId).toBe('x')
+    await pollAudit({ entity: 'Album', action: 'create', entityId: 'x' }).toBe(1)
   })
 
   it('audit row after update', async () => {
     await req('POST', '/albums', albumBody, adminToken)
     await req('PATCH', '/albums/x', { title: { en: 'Updated' } }, adminToken)
-    const rows = await prisma.auditLog.findMany({
-      where: { entity: 'Album', action: 'update', entityId: 'x' },
-    })
-    expect(rows.length).toBeGreaterThanOrEqual(1)
+    await pollAudit({ entity: 'Album', action: 'update', entityId: 'x' }).toBe(1)
   })
 
   it('audit row after delete', async () => {
     await req('POST', '/albums', albumBody, adminToken)
     await req('DELETE', '/albums/x', undefined, adminToken)
-    const rows = await prisma.auditLog.findMany({
-      where: { entity: 'Album', action: 'delete', entityId: 'x' },
-    })
-    expect(rows.length).toBeGreaterThanOrEqual(1)
+    await pollAudit({ entity: 'Album', action: 'delete', entityId: 'x' }).toBe(1)
   })
 
   it('no audit on failed request (duplicate slug → 409)', async () => {
-    const before = await prisma.auditLog.count()
     await req('POST', '/albums', albumBody, adminToken)
+    // Wait for the successful write's audit row to land first, so the
+    // before/after comparison is deterministic (fire-and-forget logging).
+    await pollAudit({ entity: 'Album', action: 'create', entityId: 'x' }).toBe(1)
+    const before = await prisma.auditLog.count()
     await req('POST', '/albums', albumBody, adminToken) // duplicate → 409
+    // Give any erroneous audit write a chance to land before asserting.
+    await new Promise((r) => setTimeout(r, 200))
     const after = await prisma.auditLog.count()
-    expect(after).toBe(before + 1) // only the successful one logged
+    expect(after).toBe(before) // failed request adds nothing
   })
 })
 

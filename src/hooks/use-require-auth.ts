@@ -18,6 +18,10 @@
 import { useCallback, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
+import {
+  hasAnyRole as checkAnyRole,
+  hasPermission as checkPermission,
+} from '@/lib/auth/permissions'
 import type { Permission, Role } from '@/types/auth'
 
 export type RequireAuthResult = 'loading' | 'authorized'
@@ -39,12 +43,16 @@ export function useRequireAuth(opts: UseRequireAuthOpts = {}): RequireAuthResult
   const searchParams = useSearchParams()
   const { status, user } = useAuth()
 
-  // Inline role check — wrapped in useCallback to stabilize useEffect deps.
+  // Role/permission checks delegate to lib/auth/permissions — the single
+  // source of truth (viewer must NOT pass permission gates).
   const hasAnyRole = useCallback(
-    (roles: readonly string[]) => !!user && roles.includes(user.role),
+    (roles: readonly Role[]) => checkAnyRole(user, roles),
     [user],
   )
-  const hasPermission = useCallback((_perm: string) => !!user, [user])
+  const hasPermission = useCallback(
+    (perm: Permission) => checkPermission(user, perm),
+    [user],
+  )
 
   useEffect(() => {
     if (status === 'loading') return

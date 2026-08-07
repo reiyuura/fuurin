@@ -33,16 +33,23 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   viewer: new Set<Permission>(),
 }
 
-export function hasRole(user: User | null | undefined, role: Role): boolean {
+/**
+ * Anything carrying a role — both `User` (full profile) and the leaner
+ * `SessionUser` from the auth repository satisfy this. Permission
+ * decisions only ever need the role.
+ */
+export type RoleBearer = Pick<User, 'role'>
+
+export function hasRole(user: RoleBearer | null | undefined, role: Role): boolean {
   return !!user && user.role === role
 }
 
-export function hasAnyRole(user: User | null | undefined, roles: readonly Role[]): boolean {
+export function hasAnyRole(user: RoleBearer | null | undefined, roles: readonly Role[]): boolean {
   return !!user && roles.includes(user.role)
 }
 
 export function hasPermission(
-  user: User | null | undefined,
+  user: RoleBearer | null | undefined,
   permission: Permission,
 ): boolean {
   if (!user) return false
@@ -51,26 +58,26 @@ export function hasPermission(
 
 /* ── Domain helpers — the only place permission decisions live ─ */
 
-export function canEditAlbums(user: User | null | undefined): boolean {
+export function canEditAlbums(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.AlbumEdit)
 }
 
-export function canCreateAlbum(user: User | null | undefined): boolean {
+export function canCreateAlbum(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.AlbumCreate)
 }
 
-export function canDeleteAlbum(user: User | null | undefined): boolean {
+export function canDeleteAlbum(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.AlbumDelete)
 }
 
-export function canPublishAlbum(user: User | null | undefined): boolean {
+export function canPublishAlbum(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.AlbumPublish)
 }
 
-export function canUploadMedia(user: User | null | undefined): boolean {
+export function canUploadMedia(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.MediaUpload)
 }
 
-export function canDeleteMedia(user: User | null | undefined): boolean {
+export function canDeleteMedia(user: RoleBearer | null | undefined): boolean {
   return hasPermission(user, Permissions.MediaDelete)
 }

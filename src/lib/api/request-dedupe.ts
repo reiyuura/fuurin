@@ -6,11 +6,6 @@
 export class RequestDedupe {
   private readonly inflight = new Map<string, Promise<unknown>>()
 
-  match<T>(key: string): { promise: Promise<T>; own: false } | null {
-    const promise = this.inflight.get(key)
-    return promise ? { promise: promise as Promise<T>, own: false } : null
-  }
-
   /**
    * Run producer once for a key. Every concurrent caller receives the
    * same promise; entry is removed after settlement to avoid stale data.

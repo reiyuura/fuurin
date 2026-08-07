@@ -1,12 +1,12 @@
 # Fuurin no Class (風鈴のクラス)
 
-Sebuah album kelas digital — nostalgic, warm, calm. Next.js 15 frontend + Fastify backend + PostgreSQL.
+Sebuah album kelas digital — nostalgic, warm, calm. Next.js 16 frontend + Fastify backend + PostgreSQL.
 
 ## Architecture
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌───────────┐      ┌────────────┐
-│  Next.js 15 │ ───▶ │ Fastify API  │ ───▶ │  Prisma   │ ───▶ │ PostgreSQL │
+│  Next.js 16 │ ───▶ │ Fastify API  │ ───▶ │  Prisma   │ ───▶ │ PostgreSQL │
 │  (frontend) │      │  (backend)   │      │   ORM     │      │  (fuurin)  │
 └─────────────┘      └──────────────┘      └───────────┘      └────────────┘
        │                     │
@@ -71,7 +71,8 @@ cd backend && npm install && npm run dev    # → http://127.0.0.1:4001
 npm install && npm run dev                  # → http://localhost:3000
 ```
 
-Test users (after seed): `rei@fuurin.id / rei12345` (admin), `hana@fuurin.id / hana12345` (editor).
+Test users (after seed, **local dev/test only**): `rei@fuurin.id / rei12345` (admin), `hana@fuurin.id / hana12345` (editor).
+Production never seeds these credentials — the admin account is created/rotated via `SEED_ADMIN_PASSWORD` (see `backend/prisma/seed.ts`).
 
 ## Testing
 
@@ -116,8 +117,9 @@ PM2 services: `fuurin-backend` (:4001), `fuurin-album` (:3030). Caddy reverse pr
 - **Headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy (backend + Next.js)
 - **Cookies**: HttpOnly, Secure (prod), SameSite=Lax, path-scoped `/api/v1/auth`
 - **Rate limits**: login/refresh 10/min/IP, upload 30/min/IP (disabled in NODE_ENV=test)
-- **Validation**: Zod on every write payload; JWT claims validated on every authed request
-- **Upload**: MIME whitelist, size cap, filename sanitization, path traversal protection
+- **Validation**: Zod on every write payload; JWT claims validated on every authed request (plus a DB user-existence check)
+- **Upload**: MIME whitelist + magic-byte content sniffing, size cap, filename sanitization, path traversal protection
+- **CORS**: deliberately absent — the API is served same-origin behind the Caddy reverse proxy (`fuurin.reiyuura.pw` → Next.js + `/api/*` → Fastify). Add `@fastify/cors` only if a cross-origin consumer is ever introduced.
 
 ## Project Status
 

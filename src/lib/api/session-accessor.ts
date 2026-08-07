@@ -18,6 +18,3 @@ export interface SessionAccessor {
   /** Resolve a session into a bearer token (or null for guest/anon). */
   resolveToken: TokenResolver
 }
-
-/** Default token resolver — uses `session.token` when present. */
-export const defaultTokenResolver: TokenResolver = (session) => session.token ?? null

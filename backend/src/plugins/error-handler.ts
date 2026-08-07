@@ -21,7 +21,12 @@ export function configureErrorHandler(app: FastifyInstance): void {
     const requestId = request.requestId
 
     if (error instanceof ApiError) {
-      request.log.warn({ requestId, code: error.code }, error.message)
+      // `cause` (e.g. the raw Prisma error) is logged server-side only —
+      // toErrorBody keeps it out of the client response.
+      request.log.warn(
+        { requestId, code: error.code, cause: error.cause },
+        error.message,
+      )
       return reply.status(error.status).send(toErrorBody(error))
     }
 

@@ -8,6 +8,8 @@ set -euo pipefail
 
 BASE="${BASE_URL:-https://fuurin.reiyuura.pw}"
 EMAIL="${TEST_EMAIL:-rei@fuurin.id}"
+# The default below is the DEV/TEST seed credential only. Production
+# must run with TEST_PASSWORD set (the prod password is never in the repo).
 PASSWORD="${TEST_PASSWORD:-rei12345}"
 COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT

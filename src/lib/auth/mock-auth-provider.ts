@@ -99,11 +99,6 @@ export class MockAuthProvider implements AuthProvider {
     return () => this.listeners.delete(listener)
   }
 
-  /** Test helper — Sprint 13 will replace. */
-  getSeedCredentials(): Array<{ email: string; password: string; role: string }> {
-    return SEED_USERS.map((u) => ({ email: u.email, password: u.password, role: u.role }))
-  }
-
   private clear(): void {
     this.current = null
     clearSession()

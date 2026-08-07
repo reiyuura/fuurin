@@ -28,6 +28,24 @@ import type {
   UpdateMemberWriteInput,
 } from './write-repositories'
 import type { Result } from '../shared/result'
+
+/** Internal marker — thrown inside createMember's transaction to abort
+ *  on a duplicate nameJa (mapped to a conflict Result at the boundary). */
+class DuplicateMemberNameError extends Error {
+  constructor() {
+    super('duplicate member nameJa')
+    this.name = 'DuplicateMemberNameError'
+  }
+}
+
+/** Internal marker — thrown inside reorderPhotos' transaction when an
+ *  ordered id matches no row (mapped to not_found at the boundary). */
+class PhotoNotFoundError extends Error {
+  constructor() {
+    super('photo not found during reorder')
+    this.name = 'PhotoNotFoundError'
+  }
+}
 import { err, ok } from '../shared/result'
 import type { Album, Member, MediaItem, TimelineEntry } from '../domain/models'
 import { toAlbum, toMember, toMediaItem, toTimelineEntry } from './mappers/prisma-to-domain'
@@ -233,19 +251,39 @@ export class PrismaWriteRepository
 
   async reorderPhotos(albumSlug: string, orderedIds: string[]): Promise<Result<void>> {
     try {
-      await this.prisma.$transaction(
-        orderedIds.map((id, i) => {
-          // Domain id is `slug:idx` — resolve to the composite key.
+      await this.prisma.$transaction(async (tx) => {
+        // Domain id is `slug:idx`. Resolve each to its STABLE row id up
+        // front — idx values change mid-reorder, so we can't re-match
+        // by the composite key after updates start.
+        const rows: Array<{ rowId: string; finalIdx: number }> = []
+        for (const [i, id] of orderedIds.entries()) {
           const colon = id.lastIndexOf(':')
           const idx = colon >= 0 ? Number(id.slice(colon + 1)) : NaN
-          const where = colon >= 0 && Number.isInteger(idx)
-            ? { albumSlug_idx: { albumSlug: id.slice(0, colon), idx } }
-            : { id } // fallback: raw Prisma cuid
-          return this.prisma.photo.update({ where: where as never, data: { idx: i } })
-        }),
-      )
+          // findFirst takes plain field filters (the albumSlug_idx
+          // compound form is only valid on findUnique/update).
+          const where =
+            colon >= 0 && Number.isInteger(idx)
+              ? { albumSlug: id.slice(0, colon), idx }
+              : { id } // fallback: raw Prisma cuid
+          const row = await tx.photo.findFirst({ where: where as never, select: { id: true } })
+          if (!row) throw new PhotoNotFoundError()
+          rows.push({ rowId: row.id, finalIdx: i })
+        }
+        // Two-phase reindex: park every photo at a temporary negative
+        // idx so @@unique(albumSlug, idx) can't collide when positions
+        // swap (e.g. [0,1] → [1,0]), then assign the final positions.
+        for (const [i, r] of rows.entries()) {
+          await tx.photo.update({ where: { id: r.rowId }, data: { idx: -(i + 1) } })
+        }
+        for (const r of rows) {
+          await tx.photo.update({ where: { id: r.rowId }, data: { idx: r.finalIdx } })
+        }
+      })
       return ok(undefined)
     } catch (e) {
+      if (e instanceof PhotoNotFoundError) {
+        return err('not_found', 'Foto tidak ditemukan saat mengubah urutan.', { albumSlug })
+      }
       return mapWriteError(e, 'Photo')
     }
   }
@@ -308,25 +346,30 @@ export class PrismaWriteRepository
 
   async createMember(input: CreateMemberWriteInput): Promise<Result<Member>> {
     try {
-      // Duplicate member check: same nameJa → conflict (no unique index
-      // on Member.nameJa, so the application layer enforces it inside
-      // the transaction to avoid a race window).
-      const dup = await this.prisma.member.findFirst({
-        where: { nameJa: input.nameJa },
-      })
-      if (dup) return err('conflict', 'Member dengan nama yang sama sudah ada.', { nameJa: input.nameJa })
-      const row = await this.prisma.$transaction((tx) =>
-        tx.member.create({
+      // Duplicate member check: same nameJa → conflict. The friendly
+      // pre-check AND the create run in ONE transaction, and the
+      // Member.nameJa UNIQUE constraint (migration 20260807) is the
+      // hard guard — a concurrent create that slips past the pre-check
+      // surfaces as P2002 → conflict via mapWriteError.
+      const row = await this.prisma.$transaction(async (tx) => {
+        const dup = await tx.member.findFirst({
+          where: { nameJa: input.nameJa },
+        })
+        if (dup) throw new DuplicateMemberNameError()
+        return tx.member.create({
           data: {
             nameJa: input.nameJa,
             name: input.name as Prisma.InputJsonValue,
             role: (input.role ?? { ja: '', id: '', en: '' }) as Prisma.InputJsonValue,
             avatar: input.avatar,
           },
-        }),
-      )
+        })
+      })
       return ok(toMember(row))
     } catch (e) {
+      if (e instanceof DuplicateMemberNameError) {
+        return err('conflict', 'Member dengan nama yang sama sudah ada.', { nameJa: input.nameJa })
+      }
       return mapWriteError(e, 'Member')
     }
   }

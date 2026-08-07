@@ -9,7 +9,7 @@
  */
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { TabBar } from '@/components/layout/tab-bar'
@@ -35,12 +35,12 @@ export function LoginExperience() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // If already authenticated, bounce to `next`.
-  if (status === 'authenticated') {
-    if (typeof window !== 'undefined') {
-      router.replace(next)
-    }
-  }
+  // If already authenticated, bounce to `next`. Navigation must live in
+  // an effect — calling router.replace() during render is a React
+  // anti-pattern (render must stay side-effect free).
+  useEffect(() => {
+    if (status === 'authenticated') router.replace(next)
+  }, [status, next, router])
 
   async function handleSubmit(input: { email: string; password: string }) {
     setError(null)
@@ -84,7 +84,7 @@ export function LoginExperience() {
               </li>
               <li className="flex items-center gap-2">
                 <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-                Sesi disimpan lokal; Sprint berikutnya pakai auth sungguhan
+                Sesi aman — access token di memori, refresh token di HttpOnly cookie
               </li>
             </ul>
           </div>

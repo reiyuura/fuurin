@@ -182,11 +182,15 @@ export function createWriteService(deps: WriteServiceDeps) {
     return result
   }
 
-  async function reorderMedia(albumSlug: string, orderedIds: string[], _actorId?: string): Promise<Result<void>> {
+  async function reorderMedia(albumSlug: string, orderedIds: string[], actorId?: string): Promise<Result<void>> {
     const album = await readAlbums.getAlbum(albumSlug)
     if (!album.ok) return album
     if (!album.value) return err('not_found', 'Album tidak ditemukan.', { albumSlug })
-    return media.reorderPhotos(albumSlug, orderedIds)
+    const result = await media.reorderPhotos(albumSlug, orderedIds)
+    if (result.ok) {
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'update', entity: 'Photo', entityId: `${albumSlug} (reorder)`, metadata: { orderedIds } })
+    }
+    return result
   }
 
   /* ── Timeline ──────────────────────────────────────────────── */
@@ -205,7 +209,7 @@ export function createWriteService(deps: WriteServiceDeps) {
       description: stripUndefined(input.description),
     })
     if (result.ok) {
-      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Timeline', entityId: '(new)' })
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Timeline', entityId: result.value.id })
     }
     return result
   }
@@ -246,7 +250,7 @@ export function createWriteService(deps: WriteServiceDeps) {
       role: stripUndefined(input.role ?? {}) as never,
     })
     if (result.ok) {
-      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Member', entityId: '(new)' })
+      void audit.log({ actorId: actorId ?? 'anonymous', action: 'create', entity: 'Member', entityId: result.value.id })
     }
     return result
   }

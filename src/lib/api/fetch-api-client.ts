@@ -29,6 +29,7 @@ import { mapTransportError, isAbortError } from './error-mapper'
 import { decideRetry } from './retry-policy'
 import { RequestDedupe } from './request-dedupe'
 import { devLogger, type Logger } from './logger'
+import { buildApiBaseUrl } from './api-base-url'
 
 export type TokenRefresher = () => Promise<{ accessToken: string } | null>
 
@@ -85,19 +86,14 @@ export class FetchApiClient implements ApiClient {
       ? mergeQuery(new URLSearchParams(), req.query)
       : new URLSearchParams()
 
-    const baseUrl = this.config.baseUrl.replace(/\/$/, '')
-    const version = this.config.version.startsWith('/')
-      ? this.config.version
-      : this.config.version
-        ? `/${this.config.version}`
-        : ''
+    const base = buildApiBaseUrl(this.config)
     const path = req.path.startsWith('/') ? req.path : `/${req.path}`
     const queryStr = params.toString()
-    const url = `${baseUrl}${version}${path}${queryStr ? `?${queryStr}` : ''}`
+    const url = `${base}${path}${queryStr ? `?${queryStr}` : ''}`
 
     // Dedupe — GET only. Body excluded by design.
     if (req.method === 'GET') {
-      const key = RequestDedupe.key(req.method, `${baseUrl}${version}${path}`, params)
+      const key = RequestDedupe.key(req.method, `${base}${path}`, params)
       return this.dedupe.run(key, () => this.executeWithRetry<T>(req, url))
     }
 

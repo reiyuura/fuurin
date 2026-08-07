@@ -58,7 +58,9 @@ export function createDraftService(deps: DraftServiceDeps) {
     const ownerId = await resolveDefaultOwner()
 
     // Single transaction: create/update album + mark draft published.
-    await albums.publishDraft({
+    // The Result MUST be checked — a failed transaction must not surface
+    // as a 200 with the draft still unpublished.
+    const published = await albums.publishDraft({
       slug: d.slug,
       title: d.title,
       description: d.description ?? undefined,
@@ -66,6 +68,7 @@ export function createDraftService(deps: DraftServiceDeps) {
       cover: d.cover ?? undefined,
       ownerId,
     })
+    if (!published.ok) return err(published.error.code, published.error.message)
 
     // Re-read the updated draft.
     const result = await drafts.get(slug)

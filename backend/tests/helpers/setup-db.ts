@@ -54,7 +54,9 @@ export async function disconnectTestPrisma(): Promise<void> {
 
 /** Wipe all data from every table. Order respects FK constraints. */
 export async function truncateAll(prisma: PrismaClient): Promise<void> {
+  // AuditLog included — audit rows from previous spec files/runs must
+  // not leak into a test's assertions (they accumulate otherwise).
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "TimelineEntry","AlbumDraft","Photo","UploadRecord","Album","Member","Session","User" RESTART IDENTITY CASCADE`,
+    `TRUNCATE TABLE "TimelineEntry","AlbumDraft","Photo","UploadRecord","Album","Member","Session","User","AuditLog" RESTART IDENTITY CASCADE`,
   )
 }

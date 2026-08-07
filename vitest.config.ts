@@ -4,7 +4,9 @@ import path from 'node:path'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/lib/repositories/**/*.spec.ts'],
+    // Any colocated spec under src/ runs — the previous narrow glob
+    // (src/lib/repositories only) would silently skip future tests.
+    include: ['src/**/*.spec.ts'],
     globals: true,
   },
   resolve: {

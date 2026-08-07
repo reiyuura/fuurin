@@ -3,9 +3,9 @@
  *
  * Business rules:
  *  - login: verify password → issue token pair → persist session.
- *  - refresh: verify JWT → lookup session by tokenHash → issue new
- *    access token (refresh rotation optional; Sprint 20A keeps the
- *    same refresh token until it expires or is revoked).
+ *  - refresh: verify JWT → atomically rotate the session row (old
+ *    tokenHash deleted, new one created in ONE transaction; a replayed
+ *    or concurrently-rotated token is rejected) → issue new pair.
  *  - logout: delete session row by tokenHash.
  *  - currentUser: lookup user by id.
  *
@@ -99,18 +99,23 @@ export function createAuthService(deps: AuthServiceDeps) {
     if (!user.ok) return user
     if (!user.value) return err('unauthorized', 'Pengguna tidak ditemukan.')
 
-    // Rotation: delete old session, create new one with fresh sid.
-    await repo.deleteSession(oldTokenHash)
-
+    // Rotation: atomically delete the old session and create the new
+    // one in a single transaction. If the old hash is already gone, this
+    // exact refresh token was replayed (or rotated concurrently) —
+    // reject instead of minting a second session from a stale token.
     const newSessionId = crypto.randomUUID()
     const newTokenHash = hashToken(newSessionId)
     const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_SEC * 1000)
-    const newSession = await repo.createSession({
+    const rotated = await repo.rotateSession({
+      oldTokenHash,
       userId: claims.sub,
-      tokenHash: newTokenHash,
+      newTokenHash,
       expiresAt,
     })
-    if (!newSession.ok) return newSession
+    if (!rotated.ok) return rotated
+    if (!rotated.value) {
+      return err('unauthorized', 'Sesi tidak ditemukan atau telah berakhir.')
+    }
 
     const pair = issueTokenPair(env, {
       userId: user.value.id,

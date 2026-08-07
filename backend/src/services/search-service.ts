@@ -49,9 +49,19 @@ export function createSearchService(deps: SearchServiceDeps) {
   async function searchAlbums(q: string): Promise<Result<Album[]>> {
     const needle = q.trim().toLowerCase()
     if (!needle) return ok([])
-    const page = await albums.listAlbums({ limit: MAX_CORPUS })
-    if (!page.ok) return page
-    const hits = page.value.items.filter(
+    // listAlbums clamps `limit` to MAX_LIMIT (100) — a single
+    // { limit: MAX_CORPUS } call would silently search only the first
+    // 100 albums. Page through the corpus instead; MAX_CORPUS stays the
+    // hard stop.
+    const corpus: Album[] = []
+    const PAGE_SIZE = 100
+    for (let pageIdx = 0; pageIdx * PAGE_SIZE < MAX_CORPUS; pageIdx++) {
+      const page = await albums.listAlbums({ page: pageIdx, limit: PAGE_SIZE })
+      if (!page.ok) return page
+      corpus.push(...page.value.items)
+      if (corpus.length >= page.value.total || page.value.items.length < PAGE_SIZE) break
+    }
+    const hits = corpus.filter(
       (a) =>
         l10nIncludes(a.title, needle) ||
         l10nIncludes(a.period, needle) ||

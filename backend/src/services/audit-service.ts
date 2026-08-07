@@ -39,7 +39,16 @@ export class AuditService {
       }),
     )
     if (!r.ok) {
-      // Best-effort: don't fail the mutation if audit logging fails.
+      // Best-effort: don't fail the mutation if audit logging fails —
+      // but NEVER fail silently. A missing audit trail must be visible
+      // in the process logs (PM2 captures stderr).
+      console.error('[audit] FAILED to write audit log entry:', {
+        actorId: entry.actorId,
+        action: entry.action,
+        entity: entry.entity,
+        entityId: entry.entityId,
+        error: r.error.message,
+      })
       return ok(undefined)
     }
     return ok(undefined)

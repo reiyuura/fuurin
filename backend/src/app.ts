@@ -58,14 +58,13 @@ export async function buildApp(
     ...overrides,
   })
 
-  // Plugins: cookie, multipart, request-id, error handler, auth guard.
+  // Plugins: cookie, multipart, request-id, error handler.
   await app.register(cookie)
   await app.register(multipart, { limits: { fileSize: env.UPLOAD_MAX_BYTES } })
   configureRequestId(app)
   configureErrorHandler(app)
   configureSecurityHeaders(app)
   configureRateLimits(app, env)
-  configureAuthGuard(app, env)
 
   // Storage provider.
   const storage = createStorageProvider(env)
@@ -80,6 +79,11 @@ export async function buildApp(
     repo: new AuthRepository(getPrisma()),
     hasher: new BcryptPasswordHasher(),
   })
+
+  // Auth guard — wired with a real user lookup so tokens whose user was
+  // deleted/demoted after issuance are rejected immediately instead of
+  // living out their access-token TTL. Must run before route registration.
+  configureAuthGuard(app, env, (userId) => auth.currentUser(userId))
 
   // Upload service.
   const uploadService = new UploadService(storage, env)

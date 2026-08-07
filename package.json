@@ -4,6 +4,9 @@
   "private": true,
   "description": "風鈴のクラス — Fuurin no Class. An open-source digital memory book for a class of Japanese language learners.",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "validate:env": "node scripts/validate-env.mjs",
@@ -36,7 +39,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

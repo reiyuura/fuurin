@@ -17,9 +17,8 @@ import type { ApiClient } from './api-client'
 import { MockApiClient } from './mock-api-client'
 import { authProvider } from '@/lib/auth/auth-provider'
 import type { SessionAccessor } from '@/lib/api/session-accessor'
-import {
-} from '@/lib/api/session-accessor'
 import { FetchApiClient } from '@/lib/api/fetch-api-client'
+import { buildApiBaseUrl } from '@/lib/api/api-base-url'
 import { noopLogger } from '@/lib/api/logger'
 import { FetchAuthRepository, getAccessToken, setAccessToken } from './auth-repository'
 import { getEnvironment } from '@/lib/config/env'
@@ -56,7 +55,7 @@ function createApiClient(): ApiClient {
         // Use raw fetch to avoid recursion — the refresh endpoint
         // must not go through the client (which would retry-on-401).
         try {
-          const res = await fetch(`${config.baseUrl}${config.version}/auth/refresh`, {
+          const res = await fetch(`${buildApiBaseUrl(config)}/auth/refresh`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: '{}',

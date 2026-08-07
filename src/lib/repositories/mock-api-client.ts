@@ -314,6 +314,10 @@ route('POST', '/albums/drafts', (req) => {
   store.drafts.push(created)
   return created
 })
+// Specific routes must register BEFORE parameterized ones — matching is
+// first-match-wins, so '/albums/drafts/slugs' before '/albums/drafts/:slug'
+// (otherwise "slugs" is swallowed by the ':slug' parameter).
+route('GET', '/albums/drafts/slugs', () => store.drafts.map((d) => d.slug))
 route('GET', '/albums/drafts/:slug', (req) => {
   const re = findRoute('GET', '^\\/albums\\/drafts\\/([^/]+)$')!
   const slug = getParam(req, re)
@@ -338,7 +342,6 @@ route('DELETE', '/albums/drafts/:slug', (req) => {
   if (store.drafts.length === before) return apiErr('not_found', 'Draft not found', null)
   return { slug }
 })
-route('GET', '/albums/drafts/slugs', () => store.drafts.map((d) => d.slug))
 
 /* Media */
 route('GET', '/media', (req) => {

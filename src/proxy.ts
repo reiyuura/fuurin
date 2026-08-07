@@ -2,17 +2,27 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 /**
- * Middleware — protects /editor/* routes from unauthenticated access.
+ * Proxy (Next.js 16 — formerly "middleware") — protects /editor/* routes
+ * from unauthenticated access.
  *
  * The frontend cannot read the HttpOnly refresh cookie, so we check for
  * the cookie's *presence* (not validity). If missing, redirect to /login.
  * The backend API still enforces auth on every write endpoint — this
- * middleware only prevents the editor UI shell from rendering for guests.
+ * proxy only prevents the editor UI shell from rendering for guests.
+ *
+ * Mock mode (local dev default): auth state lives in localStorage, which
+ * is invisible here — the gate is skipped and the client-side guard
+ * decides instead.
  */
 
 const COOKIE_NAME = 'fuurin_rt'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
+  // NEXT_PUBLIC_* is inlined at build time; in dev this is 'mock'.
+  if (process.env.NEXT_PUBLIC_API_MODE !== 'fetch') {
+    return NextResponse.next()
+  }
+
   const { pathname } = request.nextUrl
 
   // Only protect /editor paths.

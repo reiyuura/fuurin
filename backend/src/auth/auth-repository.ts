@@ -11,6 +11,15 @@ import { ok, type Result } from '../shared/result'
 
 import { safe } from '../repositories/queries/prisma-error'
 
+/** Internal marker — thrown inside rotateSession's transaction to force
+ *  a rollback when the old refresh session is already gone (replay). */
+class ReplayDetectedError extends Error {
+  constructor() {
+    super('refresh token replay detected')
+    this.name = 'ReplayDetectedError'
+  }
+}
+
 export class AuthRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -74,6 +83,46 @@ export class AuthRepository {
       if (r.error.code === 'unknown' || r.error.code === 'transport') return ok(undefined)
     }
     return ok(undefined)
+  }
+
+  /**
+   * Atomically replace the session identified by `oldTokenHash` with a
+   * fresh one (refresh-token rotation).
+   *
+   * Returns:
+   *  - ok(true)  — rotation performed
+   *  - ok(false) — old session already gone: this exact token was
+   *                replayed or rotated concurrently. Caller MUST reject.
+   *  - err(...)  — database failure (transaction rolled back; the old
+   *                session is left intact)
+   */
+  async rotateSession(args: {
+    oldTokenHash: string
+    userId: string
+    newTokenHash: string
+    expiresAt: Date
+  }): Promise<Result<boolean>> {
+    return safe(async () => {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const deleted = await tx.session.deleteMany({
+            where: { tokenHash: args.oldTokenHash },
+          })
+          if (deleted.count === 0) throw new ReplayDetectedError()
+          await tx.session.create({
+            data: {
+              userId: args.userId,
+              tokenHash: args.newTokenHash,
+              expiresAt: args.expiresAt,
+            },
+          })
+          return true
+        })
+      } catch (e) {
+        if (e instanceof ReplayDetectedError) return false
+        throw e
+      }
+    })
   }
 
   private toSessionUser(row: { id: string; email: string; name: string; role: string; avatar: string }): SessionUser {

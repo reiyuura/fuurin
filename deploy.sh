@@ -69,10 +69,10 @@ check() {
 check "healthz"      "$BASE/api/v1/healthz"              200
 check "albums"       "$BASE/api/v1/albums"               200
 check "stats"        "$BASE/api/v1/stats"                200
-check "drafts"       "$BASE/api/v1/drafts"               200
+check "drafts guard" "$BASE/api/v1/drafts"               401
 check "home"         "$BASE/"                            200
 check "login page"   "$BASE/login"                       200
-check "editor media" "$BASE/editor/media"                200
+check "editor guard"  "$BASE/editor/media"               307
 check "auth refresh" "$BASE/api/v1/auth/refresh"         401 POST
 check "users/me"     "$BASE/api/v1/users/me"             401
 check "write guard"  "$BASE/api/v1/albums"               401 POST

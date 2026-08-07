@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Production no longer boots with the public dev JWT secret** — a
+  schema `superRefine` rejects the default when `NODE_ENV=production`,
+  `validate-env.mjs` mirrors the rule, and `.env.example` documents it.
+  (Previously the comment claimed a guard that didn't exist; production
+  ran with a repo-known secret → full auth bypass. Rotated 2026-08-07.)
+- **Seed no longer resets the admin password on every deploy** —
+  credentials come from `SEED_ADMIN_PASSWORD`; production re-seeds leave
+  the account untouched. Production admin password rotated.
+- **Upload content sniffing** — magic-byte validation (JPEG/PNG/WEBP)
+  rejects payloads whose bytes don't match the client-claimed MIME type.
+- **`requireAuth` verifies the user in the database** on every request —
+  deleted/demoted accounts lose access immediately instead of living out
+  the access-token TTL; the current DB role wins over stale JWT claims.
+- **Refresh-token rotation is atomic** (single transaction) with replay
+  detection — a concurrently-presented or replayed old token is rejected
+  instead of minting a second session.
+- **Error responses no longer leak raw Prisma errors** (`code`, `meta`,
+  `clientVersion`) via `details.cause`; the diagnostic is logged
+  server-side only.
+- Database backup dumps untracked from git; `/backups/` gitignored.
+
+### Fixed
+
+- **401-refresh interceptor URL** was malformed (`…/apiv1/auth/refresh`),
+  silently killing sessions at access-token expiry in production.
+- **Client-side permission gates were a stub** (`hasPermission = () =>
+  !!user`) — viewers passed; now delegates to `lib/auth/permissions`.
+- **Media bulk delete** bypassed the API client (no auth header) → 401.
+- **Photo reorder could never swap positions** — mid-transaction `idx`
+  updates collided with `@@unique(albumSlug, idx)`. Two-phase reindex.
+- **`publish()` swallowed transaction failures** (200 on failure).
+- **Search silently covered only the first 100 albums** (pagination
+  clamp vs corpus size); now pages through the corpus.
+- **`createMember` TOCTOU** — duplicate check outside the transaction;
+  `Member.nameJa` is now `UNIQUE` (migration
+  `20260807000000_member_nameja_unique`).
+- **`reorderMedia` was never audited**; audit failures no longer silent;
+  audit `entityId` uses real ids instead of `'(new)'`.
+- **Mock-mode login** worked again in dev (session provider + route
+  gate), matching the demo credentials shown on the login form.
+- **Mock route shadowing** — `/albums/drafts/slugs` was swallowed by
+  `/:slug` (first-match-wins); specific routes register first now.
+- **Save flow redirect** no longer lands on a 404 route in fetch mode.
+- **`deploy.sh` smoke gate** — `/drafts` correctly expects 401, and the
+  `/editor/media` check expects the proxy redirect (307) instead of 200.
+- **Production `_prisma_migrations` recorded a failed migration**
+  (`20260803171145_audit_log`: table existed, 3 indexes missing) that
+  would have failed every deploy's migrate step — resolved and applied.
+- Render-phase `router.replace()` in the login page moved into an effect.
+
+### Changed
+
+- Next.js 16 convention: `src/middleware.ts` → `src/proxy.ts`.
+- `<html lang>` matches the default locale (`id`, was hardcoded `ja`).
+- `bcryptjs` 2.4.3 → 3.0.3 (dropped `@types/bcryptjs`, bundled now).
+- Root `package.json` declares `engines.node >=20`; `@types/node` ^22.
+- Frontend vitest include glob widened to `src/**/*.spec.ts`.
+- Docs corrected: README (Next.js 16, dev-only credentials, CORS
+  rationale), RELEASE_NOTES (real auth), `verify-production.mjs`
+  default port 3030; `AUDIT.md` rewritten with the full-stack audit.
+
+### Removed
+
+- Dead code: `use-auth-session.ts`, `getSeedCredentials`,
+  `defaultTokenResolver`, unused `result-helpers` combinators,
+  `RequestDedupe.match()`, backend `src/api/contract.ts`, scaffold SVGs
+  + `reference.jpg` in `public/`, leftover `console.warn`.
+
+### Added
+
+- 13 `FetchApiClient` unit tests (URL building, auth injection, GET
+  dedupe, retry policy, 401-refresh-retry, timeout, network mapping).
+- Draft-routes integration spec (CRUD + publish + guard matrix),
+  refresh-replay-under-concurrency test, reorder audit test, error-leak
+  guard test, upload MIME-spoof tests (2), production JWT-secret
+  rejection tests (4).
+
 ## [1.0.0] — 2026-08-04 — Production Release
 
 First stable production release. Full-stack album CMS with authentication,

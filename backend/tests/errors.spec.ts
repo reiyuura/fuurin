@@ -7,6 +7,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { ApiError, CODE_TO_STATUS, STATUS_TO_CODE, toErrorBody } from '../src/shared/errors'
+import { err } from '../src/shared/result'
+import { unwrap } from '../src/controllers/result-unwrap'
 
 // Mirror of frontend STATUS_TO_CODE in src/lib/api/error-mapper.ts
 const FRONTEND_STATUS_TO_CODE: Record<number, string> = {
@@ -49,5 +51,31 @@ describe('error contract parity', () => {
     expect(body.message).toBe('Album tidak ditemukan.')
     expect(body.code).toBe('not_found')
     expect(body.details).toBeUndefined()
+  })
+})
+
+describe('result unwrap — internal detail leak guard', () => {
+  it('never forwards a raw repository cause into the response body', () => {
+    // Repositories attach the RAW Prisma error as `cause` — its
+    // serialized code/meta/clientVersion must not reach the client.
+    const rawPrismaError = Object.assign(new Error('P1001 raw internals'), {
+      code: 'P1001',
+      clientVersion: '6.7.0',
+      meta: { modelName: 'Album', column: 'slug' },
+    })
+    const failed = err('unknown', 'Terjadi kesalahan basis data.', rawPrismaError)
+
+    try {
+      unwrap(failed)
+      expect.unreachable('unwrap must throw on a failed Result')
+    } catch (e) {
+      expect(e).toBeInstanceOf(ApiError)
+      const body = toErrorBody(e as ApiError)
+      expect(body.details).toBeUndefined()
+      expect(JSON.stringify(body)).not.toContain('P1001')
+      expect(JSON.stringify(body)).not.toContain('clientVersion')
+      // ...but the diagnostic is preserved server-side as Error.cause.
+      expect((e as ApiError).cause).toBe(rawPrismaError)
+    }
   })
 })

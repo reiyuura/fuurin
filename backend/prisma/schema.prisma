@@ -165,13 +165,14 @@ model AlbumDraft {
 
 model Member {
   id        String    @id @default(cuid())
-  nameJa    String
+  // Unique: the app enforces "no duplicate member names" — the DB now
+  // backs that rule so concurrent creates cannot slip through (TOCTOU).
+  // A unique constraint also creates the lookup index automatically.
+  nameJa    String    @unique
   name      Json
   role      Json
   avatar    String
   deletedAt DateTime?
-
-  @@index([nameJa])
 }
 
 // ── Timeline ─────────────────────────────────────────────────────────

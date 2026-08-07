@@ -2,6 +2,10 @@
 
 > *風鈴のクラス — Fuurin no Class*
 > First Official Release · 2026-08-03
+>
+> *Updated 2026-08-07 — the original text predated the Fastify backend
+> landing (it described auth and the repository layer as mock-only).
+> Those sections now reflect what actually shipped in v1.0.0.*
 
 Fuurin no Class is an open-source digital memory book for a class of Japanese language learners. It looks less like a feed and more like opening an old album on a quiet spring afternoon — washi paper, soft sakura accents, and typography that prefers warmth over polish.
 
@@ -18,7 +22,7 @@ In one sentence: a finished album experience, a real editor, a real upload pipel
 - **A finished album.** Six seeded albums, a multilingual viewer, and a sticky washi-paper grid that opens with a gentle hover-print effect.
 - **A working editor.** Create, rename, schedule, reorder, republish — all from the same screen, with autosave, unsaved-guard, and confirm-before-delete.
 - **A real upload pipeline.** Drop a folder, watch the queue drain, retry the failed ones, cancel the rest. Object URLs are cleaned up on unmount.
-- **Authentication that is honest.** Mock today, ready for a real provider tomorrow. The auth boundary is a single `SessionAccessor` that any future OAuth or SSO client can replace without touching the rest of the app.
+- **Authentication that is honest.** Real JWT auth shipped in v1.0.0: access token in memory + refresh token in an HttpOnly cookie with rotation. The `SessionAccessor` boundary means any future OAuth or SSO client can still be swapped in without touching the rest of the app.
 - **A repository layer ready for production.** DTOs never leak past the data layer, every method returns a discriminated `RepositoryResult<T>`, the mock impls and the API impls are interchangeable.
 - **Operational hardening.** Fail-fast environment validation, security headers, error boundaries with chunk-load detection, consistent 401 / 403 / 404 / 500 pages, `/api/health`, sitemap, robots.
 
@@ -33,7 +37,7 @@ In one sentence: a finished album experience, a real editor, a real upload pipel
 - **Timeline** with date-sorted story highlights.
 - **Media library** with selection-mode grid, search debounce, filter chips, lazy paginated load.
 - **Theme + locale + session** with warm dark mode, three-locale dictionary, localStorage session restore, cross-tab sync.
-- **Authentication** with mock provider, role-based UI, route-level protection.
+- **Authentication** with JWT + refresh rotation against the Fastify backend, role-based UI, route-level protection. (A mock provider remains available for offline dev via `NEXT_PUBLIC_API_MODE=mock`.)
 
 ## Architecture
 

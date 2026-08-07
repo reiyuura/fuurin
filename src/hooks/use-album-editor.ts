@@ -204,8 +204,7 @@ export function useAlbumEditor({ initial, isNew }: UseAlbumEditorArgs): UseAlbum
     const res = await repositories.albums.deleteDraft(draft.slug)
     if (!isOk(res)) {
       // Soft-fail — let the editor remain in a recoverable state.
-       
-      console.warn('deleteDraft failed', res.error)
+      // (intentionally silent; the unsaved-guard keeps the draft dirty)
     }
   }, [draft.slug, isNew])
 

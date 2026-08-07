@@ -132,17 +132,19 @@ export default function MediaLibraryPage() {
   // ── Bulk delete (admin) ───────────────────────────────────
   const handleBulkDelete = async () => {
     if (!confirm(`Hapus ${selected.size} foto? Tindakan ini tidak dapat dibatalkan.`)) return
-    const res = await fetch('/api/v1/media/bulk', {
+    // Route through the API client — a raw fetch() would miss the
+    // Authorization header and the configured base URL (401 in prod).
+    const res = await getApiClient().request({
       method: 'DELETE',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ids: Array.from(selected) }),
+      path: '/media/bulk',
+      body: { ids: Array.from(selected) },
     })
     if (res.ok) {
       toast('success', `${selected.size} foto dihapus.`)
       setSelected(new Set())
       fetchMedia()
     } else {
-      toast('error', 'Gagal menghapus foto.')
+      toast('error', `Gagal menghapus foto: ${res.error.message}`)
     }
   }
 
@@ -190,7 +192,8 @@ export default function MediaLibraryPage() {
     }
     // Prefix relative upload URL with API origin for backend validation.
     const rawUrl = upRes.data.url
-    const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${getEnvironment().apiBaseUrl.replace('/api', '')}${rawUrl}`
+    const apiOrigin = new URL(getEnvironment().apiBaseUrl).origin
+    const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${apiOrigin}${rawUrl}`
     const res = await getApiClient().request({
       method: 'PATCH', path: `/media/${encodeURIComponent(item.id)}`,
       body: { src: absoluteUrl },
@@ -198,8 +201,8 @@ export default function MediaLibraryPage() {
     setReplacing(false)
     if (res.ok) {
       toast('success', 'Media berhasil diganti.')
+      // `media` drives the viewer via index — updating it is enough.
       setMedia((prev) => prev.map((m) => (m.id === item.id ? { ...m, src: absoluteUrl } : m)))
-      setViewer((v) => v ? { ...v, src: absoluteUrl } : v)
     } else {
       toast('error', `Gagal memperbarui media: ${res.error.message}`)
     }

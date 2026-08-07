@@ -53,6 +53,17 @@ if (env.NODE_ENV === 'production' && !env.DATABASE_URL?.startsWith('postgres')) 
   errors.push('DATABASE_URL must be a postgres:// URL in production')
 }
 
+// Mirrors the superRefine in src/config/env.ts: production must never run
+// with the public dev JWT secret (unset counts — the schema default applies).
+const DEV_JWT_SECRET = 'dev-only-secret-do-not-use-in-production-replace-me!!'
+if (env.NODE_ENV === 'production') {
+  if (!env.JWT_SECRET || env.JWT_SECRET === DEV_JWT_SECRET) {
+    errors.push('JWT_SECRET must be set to a real secret in production (generate with: openssl rand -hex 32)')
+  } else if (env.JWT_SECRET.length < 32) {
+    errors.push('JWT_SECRET must be at least 32 characters')
+  }
+}
+
 if (errors.length > 0) {
   console.error('[validate-env] FAILED:')
   for (const e of errors) console.error(`  - ${e}`)

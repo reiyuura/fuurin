@@ -65,3 +65,6 @@ coverage/
 # cache
 .cache/
 .eslintcache
+
+# database backups — must never enter the repo (production data)
+/backups/

@@ -10,6 +10,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getEnvironment } from '@/lib/config/env'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { TabBar } from '@/components/layout/tab-bar'
@@ -46,12 +47,20 @@ export function AlbumEditor({ initial, mediaItems, isNew }: AlbumEditorProps) {
   const cover = resolveCover(editor.draft, mediaItems)
   const ordered = resolved.ordered
 
+  // The draft editor page only exists in mock mode (/albums/[slug]/edit
+  // is backed by draft endpoints the fetch repositories don't implement).
+  // In fetch mode the editor workspace lives under /editor/albums/[slug].
+  const editPath = (slug: string) =>
+    getEnvironment().apiMode === 'fetch'
+      ? `/editor/albums/${slug}`
+      : `/albums/${slug}/edit`
+
   async function handleSaveDraft() {
     try {
       const result = await editor.saveDraft()
       // After create, route stays on /new but slug is now real.
       if (isNew && result.slug !== initial.slug) {
-        router.replace(`/albums/${result.slug}/edit`)
+        router.replace(editPath(result.slug))
       }
     } catch {
       // status already set by hook
@@ -62,7 +71,7 @@ export function AlbumEditor({ initial, mediaItems, isNew }: AlbumEditorProps) {
     try {
       const result = await editor.publish()
       if (isNew && result.slug !== initial.slug) {
-        router.replace(`/albums/${result.slug}/edit`)
+        router.replace(editPath(result.slug))
       }
     } catch {
       // status already set by hook

@@ -136,6 +136,63 @@ describe('POST /uploads', () => {
     expect(res.json().code).toBe('validation')
   })
 
+  it('rejects content that spoofs an allowed MIME type', async () => {
+    // Claims image/jpeg but the bytes are an HTML/JS payload.
+    const boundary = '--spoof'
+    const evil = Buffer.from('<script>alert(1)</script>', 'utf-8')
+    const pre = Buffer.from(
+      [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="file"; filename="evil.jpg"',
+        'Content-Type: image/jpeg',
+        '',
+        '',
+      ].join('\r\n'),
+      'utf-8',
+    )
+    const post = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8')
+
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/uploads',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        authorization: `Bearer ${adminToken}`,
+      },
+      payload: Buffer.concat([pre, evil, post]),
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().code).toBe('validation')
+    expect(res.json().message).toMatch(/tidak cocok/)
+  })
+
+  it('rejects a renamed text file with a fake image extension', async () => {
+    // Mismatch in the other direction: .png filename, non-PNG bytes.
+    const boundary = '--fake'
+    const notPng = Buffer.from('just some text pretending to be a png', 'utf-8')
+    const pre = Buffer.from(
+      [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="file"; filename="fake.png"',
+        'Content-Type: image/png',
+        '',
+        '',
+      ].join('\r\n'),
+      'utf-8',
+    )
+    const post = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8')
+
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/uploads',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        authorization: `Bearer ${adminToken}`,
+      },
+      payload: Buffer.concat([pre, notPng, post]),
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().code).toBe('validation')
+  })
+
   it('rejects oversized file', async () => {
     // ENV has UPLOAD_MAX_BYTES = 1MB, but we set it to 16 bytes for this test.
     // Use the inject with a very large payload. Actually let's test via the

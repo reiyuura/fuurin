@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  DEV_JWT_SECRET,
   EnvironmentValidationError,
   __setEnvironmentForTesting,
   loadEnvironment,
@@ -59,6 +60,36 @@ describe('environment validation (fail-fast)', () => {
     expect(() =>
       loadEnvironment({ ...VALID_ENV, API_BASE_PATH: 'api/v1' }),
     ).toThrow(EnvironmentValidationError)
+  })
+
+  it('falls back to the dev JWT secret outside production', () => {
+    const env = loadEnvironment(VALID_ENV)
+    expect(env.JWT_SECRET).toBe(DEV_JWT_SECRET)
+  })
+
+  it('throws when production leaves JWT_SECRET unset (dev default applies)', () => {
+    expect(() =>
+      loadEnvironment({ ...VALID_ENV, NODE_ENV: 'production' }),
+    ).toThrow(/JWT_SECRET must be set to a real secret in production/)
+  })
+
+  it('throws when production explicitly uses the dev JWT secret', () => {
+    expect(() =>
+      loadEnvironment({
+        ...VALID_ENV,
+        NODE_ENV: 'production',
+        JWT_SECRET: DEV_JWT_SECRET,
+      }),
+    ).toThrow(EnvironmentValidationError)
+  })
+
+  it('accepts production with a real JWT_SECRET', () => {
+    const env = loadEnvironment({
+      ...VALID_ENV,
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a'.repeat(64),
+    })
+    expect(env.JWT_SECRET).toBe('a'.repeat(64))
   })
 
   afterEach(() => {

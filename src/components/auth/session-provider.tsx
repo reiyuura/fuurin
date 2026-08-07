@@ -10,9 +10,22 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getEnvironment } from '@/lib/config/env'
+import { authProvider } from '@/lib/auth/auth-provider'
 import { FetchAuthRepository } from '@/lib/repositories/auth-repository'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
 import type { SessionUser } from '@/lib/repositories/auth-repository'
+import type { User } from '@/types/auth'
+
+/** Map the full User (mock provider) to the lean SessionUser shape. */
+function toSessionUser(u: User): SessionUser {
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.name,
+    role: u.role,
+    avatar: u.avatar,
+  }
+}
 
 export type SessionContextValue = {
   status: 'loading' | 'authenticated' | 'guest'
@@ -38,10 +51,17 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const [user, setUser] = useState<SessionUser | null>(null)
   const [status, setStatus] = useState<SessionContextValue['status']>('loading')
 
-  // Restore session on mount (fetch mode only).
+  // Restore session on mount.
   useEffect(() => {
     if (!isFetch) {
-      setStatus('guest')
+      // Mock mode (dev default): hydrate from localStorage via the mock
+      // provider so the demo accounts shown on the login form work.
+      authProvider.getSession()
+        .then((s) => {
+          if (s) { setUser(toSessionUser(s.user)); setStatus('authenticated') }
+          else setStatus('guest')
+        })
+        .catch(() => setStatus('guest'))
       return
     }
     const repo = new FetchAuthRepository(getApiClient())
@@ -55,7 +75,13 @@ export function SessionProvider({ children }: SessionProviderProps) {
   }, [isFetch])
 
   const login = useCallback(async (email: string, password: string) => {
-    if (!isFetch) throw new Error('Login hanya tersedia di fetch mode.')
+    if (!isFetch) {
+      const session = await authProvider.login({ email, password })
+      const su = toSessionUser(session.user)
+      setUser(su)
+      setStatus('authenticated')
+      return su
+    }
     const repo = new FetchAuthRepository(getApiClient())
     const res = await repo.login(email, password)
     if (!res.ok) throw new Error(res.error.message)
@@ -65,7 +91,12 @@ export function SessionProvider({ children }: SessionProviderProps) {
   }, [isFetch])
 
   const logout = useCallback(async () => {
-    if (!isFetch) return
+    if (!isFetch) {
+      await authProvider.logout()
+      setUser(null)
+      setStatus('guest')
+      return
+    }
     const repo = new FetchAuthRepository(getApiClient())
     await repo.logout()
     setUser(null)

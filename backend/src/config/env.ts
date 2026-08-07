@@ -8,6 +8,13 @@
 
 import { z } from 'zod'
 
+/**
+ * Convenience secret for local development and tests ONLY.
+ * Never acceptable in production — enforced by the superRefine below.
+ */
+export const DEV_JWT_SECRET =
+  'dev-only-secret-do-not-use-in-production-replace-me!!'
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -24,11 +31,15 @@ const envSchema = z.object({
   STORAGE_LOCAL_ROOT: z.string().default('./storage/uploads'),
   API_BASE_PATH: z.string().startsWith('/').default('/api/v1'),
   API_VERSION: z.string().default('v1'),
-  /** JWT signing secret — must be ≥32 chars. */
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default(
-    // Dev-only default; production throws via validateEnvironment().
-    'dev-only-secret-do-not-use-in-production-replace-me!!',
-  ),
+  /**
+   * JWT signing secret — must be ≥32 chars.
+   * Defaults to DEV_JWT_SECRET for local dev/test; production MUST set a
+   * real secret (rejected by the superRefine below if left as default).
+   */
+  JWT_SECRET: z
+    .string()
+    .min(32, 'JWT_SECRET must be at least 32 characters')
+    .default(DEV_JWT_SECRET),
   /** Access token TTL in seconds (default 15min). */
   JWT_ACCESS_TTL_SEC: z.coerce.number().int().min(60).max(86400).default(900),
   /** Refresh token TTL in seconds (default 7d). */
@@ -37,6 +48,18 @@ const envSchema = z.object({
   JWT_REFRESH_COOKIE: z.string().default('fuurin_rt'),
   /** Max upload size in bytes (default 10MB). */
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1024).max(100_000_000).default(10_000_000),
+}).superRefine((data, ctx) => {
+  // Fail-fast: production must never sign tokens with the public dev secret
+  // (this also covers "JWT_SECRET unset" since the schema default applies).
+  if (data.NODE_ENV === 'production' && data.JWT_SECRET === DEV_JWT_SECRET) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_SECRET'],
+      message:
+        'JWT_SECRET must be set to a real secret in production ' +
+        '(generate with: openssl rand -hex 32)',
+    })
+  }
 })
 
 export type Env = z.infer<typeof envSchema>

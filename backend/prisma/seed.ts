@@ -65,14 +65,46 @@ function deriveOrientation(seed: number): 'landscape' | 'portrait' {
 
 // ── Seed operations ─────────────────────────────────────────────────
 
+/**
+ * Dev/test-only credential — documented in README, used by tests.
+ * NEVER applied to a production database (see seedUser below).
+ */
+const DEV_ADMIN_PASSWORD = 'rei12345'
+
 async function seedUser(): Promise<string> {
+  const isProd = process.env.NODE_ENV === 'production'
+  // Deliberate rotation path: operator explicitly passes SEED_ADMIN_PASSWORD.
+  const rotationPassword = process.env.SEED_ADMIN_PASSWORD
+
+  // Production safety: re-seeds must NEVER reset the admin password to a
+  // repo-known value. Without an explicit SEED_ADMIN_PASSWORD the account
+  // is left untouched (we only resolve it as the album owner).
+  if (isProd && !rotationPassword) {
+    const existing = await prisma.user.findUnique({
+      where: { email: 'rei@fuurin.id' },
+    })
+    if (existing) {
+      console.log('  production mode: admin account untouched (set SEED_ADMIN_PASSWORD to rotate)')
+      return existing.id
+    }
+    throw new Error(
+      'Production seed: no admin account exists yet. ' +
+      'Set SEED_ADMIN_PASSWORD to create one with a real password.',
+    )
+  }
+
   // Sprint 20A: hash the seed password so login works end-to-end.
   const bcryptModule = await import('bcryptjs')
   const bcrypt = 'default' in bcryptModule ? (bcryptModule.default as typeof import('bcryptjs')) : bcryptModule
-  const passwordHash = await bcrypt.hash('rei12345', 10)
+  // Create-only default for dev/test; in production this is always the
+  // explicitly-provided rotation password (never the dev credential).
+  const effectivePassword = rotationPassword ?? DEV_ADMIN_PASSWORD
+  const passwordHash = await bcrypt.hash(effectivePassword, 10)
   const u = await prisma.user.upsert({
     where: { email: 'rei@fuurin.id' },
-    update: { passwordHash },
+    // Only rotate the password when the operator explicitly asked for it —
+    // plain re-seeds leave existing credentials alone.
+    update: rotationPassword ? { passwordHash } : {},
     create: {
       email: 'rei@fuurin.id',
       name: 'Rei',

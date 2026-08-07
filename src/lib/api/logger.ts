@@ -40,7 +40,6 @@ function emit(level: 'debug' | 'info' | 'warn' | 'error', entry: LogEntry): void
   if (isProd()) return
   const payload = JSON.stringify(entry, null, 0)
   const line = `[${entry.layer}]${entry.requestId ? ` (${entry.requestId})` : ''} ${payload}`
-   
   console[level](line)
 }
 

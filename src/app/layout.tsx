@@ -78,7 +78,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja" className={`${geistSans.variable} ${geistMono.variable} ${notoSerifJP.variable} ${notoSansJP.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="id" className={`${geistSans.variable} ${geistMono.variable} ${notoSerifJP.variable} ${notoSansJP.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

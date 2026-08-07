@@ -15,7 +15,15 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Env } from '../config/env'
 import { verifyAccessToken } from '../auth/jwt'
 import type { SessionUser, UserRole } from '../domain/auth'
+import type { Result } from '../shared/result'
 import { ApiError } from '../shared/errors'
+
+/**
+ * Looks up the CURRENT user row. Injected so `requireAuth` can reject
+ * tokens whose user was deleted/demoted after issuance (JWT claims are
+ * otherwise trusted until expiry — up to JWT_ACCESS_TTL_SEC).
+ */
+export type UserLookup = (userId: string) => Promise<Result<SessionUser | null>>
 
 export type AuthedRequest = FastifyRequest & {
   user: SessionUser | null
@@ -32,7 +40,11 @@ declare module 'fastify' {
   }
 }
 
-export function configureAuthGuard(app: FastifyInstance, env: Env): void {
+export function configureAuthGuard(
+  app: FastifyInstance,
+  env: Env,
+  lookupUser?: UserLookup,
+): void {
   app.decorateRequest('user', null)
 
   app.decorate('requireAuth', async (request: FastifyRequest) => {
@@ -41,18 +53,36 @@ export function configureAuthGuard(app: FastifyInstance, env: Env): void {
       throw new ApiError('unauthorized', 'Token akses diperlukan.')
     }
     const token = header.slice(7)
+    let claims
     try {
-      const claims = verifyAccessToken(env, token)
-      const req = request as AuthedRequest
-      req.user = {
-        id: claims.sub,
-        email: '',
-        displayName: '',
-        role: claims.role,
-        avatar: '',
-      }
+      claims = verifyAccessToken(env, token)
     } catch {
       throw new ApiError('unauthorized', 'Token akses tidak valid atau kedaluwarsa.')
+    }
+
+    const req = request as AuthedRequest
+
+    if (lookupUser) {
+      // DB check: the user must still exist, and the CURRENT role from
+      // the database wins over the (possibly stale) JWT role claim.
+      const found = await lookupUser(claims.sub)
+      if (!found.ok) {
+        throw new ApiError('unknown', 'Gagal memverifikasi sesi pengguna.')
+      }
+      if (!found.value) {
+        throw new ApiError('unauthorized', 'Akun tidak ditemukan atau sudah dinonaktifkan.')
+      }
+      req.user = found.value
+      return
+    }
+
+    // No lookup wired (unit tests): fall back to trusting token claims.
+    req.user = {
+      id: claims.sub,
+      email: '',
+      displayName: '',
+      role: claims.role,
+      avatar: '',
     }
   })
 

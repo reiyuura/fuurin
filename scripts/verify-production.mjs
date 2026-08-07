@@ -1,4 +1,7 @@
-const base = process.env.VERIFY_BASE_URL ?? 'http://127.0.0.1:3000'
+// Default = local PM2 production instance (frontend serves :3030,
+// see README "Deployment"). Dev server (:3000) also works via override:
+//   VERIFY_BASE_URL=http://127.0.0.1:3000 npm run verify
+const base = process.env.VERIFY_BASE_URL ?? 'http://127.0.0.1:3030'
 const checks = [
   ['/', 200],
   ['/albums', 200],
