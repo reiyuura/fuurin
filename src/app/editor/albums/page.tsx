@@ -9,7 +9,9 @@ import { repositories } from '@/lib/repositories/repository-registry'
 import { DeleteAlbumButton } from '@/components/editor/delete-dialog'
 
 export default async function AlbumListPage() {
-  const result = await repositories.albums.listAlbums()
+  // Default limit is 20 — the editor needs the whole collection (a class
+  // album realistically stays well under 100; add a pager if it grows).
+  const result = await repositories.albums.listAlbums({ pagination: { page: 0, size: 100 } })
 
   if (!result.ok) {
     return (

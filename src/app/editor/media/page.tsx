@@ -19,6 +19,8 @@ import { useAuthReady } from '@/hooks/use-auth-ready'
 import { useToast } from '@/components/ui/toast'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import { SortableMediaGrid } from '@/components/editor/sortable-media-grid'
+import { attachUploadsToAlbum, type UploadedFile } from '@/lib/attach-uploads'
+import { readImageDimensions } from '@/lib/upload-utils'
 import type { MediaItem } from '@/types/media'
 import clsx from 'clsx'
 
@@ -46,6 +48,9 @@ export default function MediaLibraryPage() {
   const [attachOpen, setAttachOpen] = useState(false)
   const [replacing, setReplacing] = useState(false)
   const replaceInputRef = useRef<HTMLInputElement>(null)
+  // Files uploaded in this session that are not yet attached to any
+  // album (upload only stores bytes — a Photo row is what shows up).
+  const [pendingUploads, setPendingUploads] = useState<UploadedFile[]>([])
 
   const fetchMedia = useCallback(async () => {
     setLoading(true)
@@ -80,9 +85,12 @@ export default function MediaLibraryPage() {
         m.id.toLowerCase().includes(q),
       )
     }
-    if (sort === 'name') items.sort((a, b) => (a.caption.en ?? a.id).localeCompare(b.caption.en ?? b.id))
+    // Reorder mode (album filter active) MUST display album order —
+    // drag-and-drop sends the visual order to PATCH /media/reorder, so a
+    // name/date sort here would scramble the album's real photo order.
+    if (albumFilter) items.sort((a, b) => a.idx - b.idx)
+    else if (sort === 'name') items.sort((a, b) => (a.caption.en ?? a.id).localeCompare(b.caption.en ?? b.id))
     else if (sort === 'oldest') items.sort((a, b) => a.date.localeCompare(b.date))
-    else if (albumFilter) items.sort((a, b) => a.idx - b.idx) // keep album order when reordering
     else items.sort((a, b) => b.date.localeCompare(a.date))
     return items
   }, [media, query, sort, albumFilter])
@@ -101,22 +109,29 @@ export default function MediaLibraryPage() {
     setUploading(true)
     setUploadProgress({ current: 0, total: arr.length })
     const repo = new FetchUploadRepository(getApiClient())
-    const uploadOne = async (file: File, retries = 2): Promise<boolean> => {
+    const uploadOne = async (file: File, retries = 2): Promise<UploadedFile | null> => {
+      // Dimensions → orientation (best-effort; default landscape).
+      const dims = await readImageDimensions(file).catch(() => undefined)
+      const orientation: 'landscape' | 'portrait' =
+        dims && dims.height > dims.width ? 'portrait' : 'landscape'
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
           const res = await repo.upload(file)
-          if (res.ok) return true
+          if (res.ok) return { url: res.data.url, name: file.name, orientation }
         } catch { /* retry */ }
         if (attempt < retries) await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
       }
-      return false
+      return null
     }
     let completed = 0, failed = 0
+    const uploaded: UploadedFile[] = []
     const queue = [...arr]
     const worker = async () => {
       while (queue.length) {
         const f = queue.shift()!
-        if (!(await uploadOne(f))) failed++
+        const up = await uploadOne(f)
+        if (up) uploaded.push(up)
+        else failed++
         completed++
         setUploadProgress({ current: completed, total: arr.length })
       }
@@ -125,7 +140,20 @@ export default function MediaLibraryPage() {
     setUploading(false)
     setUploadProgress(null)
     if (failed > 0) toast('error', `${failed} dari ${arr.length} file gagal diunggah.`)
-    else toast('success', `${arr.length} file berhasil diunggah.`)
+
+    // An upload only stores the file — attach so it actually SHOWS UP.
+    // With an album filter active, attach straight into that album;
+    // otherwise queue as pending so the user can pick an album.
+    if (uploaded.length > 0 && albumFilter) {
+      const r = await attachUploadsToAlbum(getApiClient(), albumFilter, uploaded)
+      if (r.failed === 0) toast('success', `${r.attached} foto terunggah & dilampirkan ke album ini.`)
+      else toast('error', `${r.failed} foto gagal dilampirkan setelah upload.`)
+    } else if (uploaded.length > 0) {
+      setPendingUploads((prev) => [...prev, ...uploaded])
+      toast('success', `${uploaded.length} file terunggah. Lampirkan ke album agar tampil.`)
+    } else if (failed === 0) {
+      toast('success', `${arr.length} file berhasil diunggah.`)
+    }
     fetchMedia()
   }
 
@@ -151,13 +179,38 @@ export default function MediaLibraryPage() {
   // ── Attach to album ───────────────────────────────────────
   const handleAttach = async (albumSlug: string) => {
     const client = getApiClient()
+
+    // Path A: just-uploaded files awaiting an album.
+    if (pendingUploads.length > 0) {
+      const r = await attachUploadsToAlbum(client, albumSlug, pendingUploads)
+      setAttachOpen(false)
+      if (r.failed === 0) {
+        toast('success', `${r.attached} foto dilampirkan ke album.`)
+        setPendingUploads([])
+      } else {
+        toast('error', `${r.failed} dari ${pendingUploads.length} foto gagal dilampirkan.`)
+        // Keep the remainder pending so the user can retry.
+        setPendingUploads((prev) => prev.slice(r.attached))
+      }
+      fetchMedia()
+      return
+    }
+
+    // Path B: existing photo rows copied into another album.
     const ids = Array.from(selected)
     const existing = media.filter((m) => m.albumSlug === albumSlug)
-    let idx = existing.length
+    // Deletions leave non-contiguous idx values — `existing.length` can
+    // collide (→ 409). Continue from the current maximum instead.
+    let idx = existing.reduce((max, m) => Math.max(max, m.idx), -1) + 1
+    // Skip photos already attached (same src) — attaching twice used to
+    // create silent duplicates.
+    const existingSrcs = new Set(existing.map((m) => m.src))
     let failed = 0
+    let skipped = 0
     for (const id of ids) {
       const item = media.find((m) => m.id === id)
       if (!item) continue
+      if (existingSrcs.has(item.src)) { skipped++; continue }
       const res = await client.request({
         method: 'POST', path: '/media',
         body: {
@@ -172,7 +225,8 @@ export default function MediaLibraryPage() {
     setSelected(new Set())
     if (failed > 0) toast('error', `${failed} foto gagal dilampirkan.`)
     else {
-      toast('success', `${ids.length} foto dilampirkan ke album.`)
+      const skippedNote = skipped > 0 ? ` (${skipped} sudah ada, dilewati)` : ''
+      toast('success', `${ids.length - failed - skipped} foto dilampirkan ke album.${skippedNote}`)
       fetchMedia()
     }
   }
@@ -276,6 +330,30 @@ export default function MediaLibraryPage() {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-hover">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
           </div>
+        </div>
+      )}
+
+      {/* Just-uploaded files that live in storage but in NO album yet —
+          invisible everywhere until attached. */}
+      {pendingUploads.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#D9A441]/30 bg-[#D9A441]/10 px-4 py-3">
+          <p className="text-[13px] font-medium text-foreground-strong">
+            {pendingUploads.length} file terunggah — belum tampil di album mana pun.
+          </p>
+          <button
+            onClick={() => setAttachOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-[12px] font-medium text-white hover:bg-primary/90 transition"
+          >
+            <FolderInput size={13} aria-hidden="true" />
+            Lampirkan ke album
+          </button>
+          <button
+            onClick={() => setPendingUploads([])}
+            aria-label="Abaikan file yang belum dilampirkan"
+            className="text-muted-foreground hover:text-foreground-strong transition"
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
         </div>
       )}
 
@@ -416,7 +494,11 @@ export default function MediaLibraryPage() {
           <div onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
             <h2 className="text-base font-bold text-foreground-strong">Lampirkan ke Album</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">{selected.size} foto akan disalin ke album terpilih.</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {pendingUploads.length > 0
+                ? `${pendingUploads.length} file yang baru diunggah akan masuk ke album terpilih.`
+                : `${selected.size} foto akan disalin ke album terpilih.`}
+            </p>
             <div className="mt-4 max-h-64 space-y-1 overflow-y-auto">
               {albums.map((a) => (
                 <button key={a.slug} onClick={() => handleAttach(a.slug)}

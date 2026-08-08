@@ -12,6 +12,30 @@ import { parseOrThrow } from './zod-parse'
 import { loginSchema, refreshSchema } from '../schemas/auth-schemas'
 import type { AuthedRequest } from '../plugins/auth-guard'
 
+/**
+ * Non-HttpOnly "session hint" cookie. The frontend cannot read the
+ * HttpOnly refresh cookie, so without this hint the SessionProvider had
+ * to call POST /auth/refresh on EVERY first page load — including for
+ * guests — burning the shared auth rate-limit bucket (10/min/IP).
+ * The hint carries no credential; it only says "a refresh is worth
+ * attempting".
+ */
+export const SESSION_HINT_COOKIE = 'fuurin_has_session'
+
+function setSessionHint(reply: FastifyReply, env: Env, expiresAt: number): void {
+  reply.setCookie(SESSION_HINT_COOKIE, '1', {
+    httpOnly: false, // JS must read it — it is NOT a credential
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    expires: new Date(expiresAt),
+  })
+}
+
+function clearSessionHint(reply: FastifyReply): void {
+  reply.clearCookie(SESSION_HINT_COOKIE, { path: '/' })
+}
+
 export function createAuthController(service: AuthService, env: Env) {
   return {
     /** POST /auth/login */
@@ -32,6 +56,7 @@ export function createAuthController(service: AuthService, env: Env) {
         path: '/',
         expires: new Date(result.value.refreshExpiresAt),
       })
+      setSessionHint(reply, env, result.value.refreshExpiresAt)
 
       return reply.send({
         user: result.value.user,
@@ -63,6 +88,7 @@ export function createAuthController(service: AuthService, env: Env) {
         path: '/',
         expires: new Date(result.value.refreshExpiresAt),
       })
+      setSessionHint(reply, env, result.value.refreshExpiresAt)
 
       return reply.send({
         accessToken: result.value.accessToken,
@@ -77,6 +103,7 @@ export function createAuthController(service: AuthService, env: Env) {
         await service.logout(cookieToken)
       }
       reply.clearCookie(env.JWT_REFRESH_COOKIE, { path: '/' })
+      clearSessionHint(reply)
       return reply.send({ ok: true })
     },
 

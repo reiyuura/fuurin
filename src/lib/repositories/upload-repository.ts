@@ -15,19 +15,20 @@ export type UploadResult = {
 }
 
 export interface UploadRepository {
-  upload(file: File): Promise<ApiResponse<UploadResult>>
+  upload(file: File, signal?: AbortSignal): Promise<ApiResponse<UploadResult>>
 }
 
 export class FetchUploadRepository implements UploadRepository {
   constructor(private readonly api: ApiClient) {}
 
-  async upload(file: File): Promise<ApiResponse<UploadResult>> {
+  async upload(file: File, signal?: AbortSignal): Promise<ApiResponse<UploadResult>> {
     const form = new FormData()
     form.append('file', file)
     const res = await this.api.request<UploadResult>({
       method: 'POST',
       path: '/uploads',
       body: form as unknown as Record<string, unknown>,
+      signal,
       // Do NOT set Content-Type — the browser sets it with the correct
       // multipart boundary automatically. Manual setting strips the
       // boundary and the backend can't parse the body.

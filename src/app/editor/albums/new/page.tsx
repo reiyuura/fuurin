@@ -55,9 +55,10 @@ export default function NewAlbumPage() {
     const repo = new FetchUploadRepository(getApiClient())
     const res = await repo.upload(coverFile)
     if (res.ok) {
-      // Backend requires z.string().url() — prefix relative path with API origin.
+      // Backend requires z.string().url() — prefix relative path with
+      // the API origin (robust regardless of the base URL's path part).
       const rawUrl = res.data.url
-      const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${env.apiBaseUrl.replace('/api', '')}${rawUrl}`
+      const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${new URL(env.apiBaseUrl).origin}${rawUrl}`
       setCoverUrl(absoluteUrl)
       toast('success', 'Cover terunggah.')
     } else {

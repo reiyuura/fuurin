@@ -12,7 +12,7 @@
 import crypto from 'node:crypto'
 import path from 'node:path'
 import type { Env } from '../config/env'
-import type { StorageProvider } from '../storage/storage-provider'
+import type { StorageProvider, StorageObject } from '../storage/storage-provider'
 import { err, ok, type Result } from '../shared/result'
 
 export type UploadResult = {
@@ -86,9 +86,33 @@ export class UploadService {
 
     return ok({
       key,
-      url: `/api/v1/uploads/${key}`, // Serve via dedicated route.
+      url: `/api/v1/uploads/${key}`, // Served by GET /uploads/* (public).
       sizeBytes: file.data.byteLength,
       contentType: file.mimeType,
     })
+  }
+
+  /**
+   * Read an uploaded object for public serving (GET /uploads/*).
+   * The storage provider's safe-join rejects path traversal; missing
+   * objects map to not_found.
+   */
+  async getObject(key: string): Promise<Result<StorageObject>> {
+    if (!key || key.includes('..') || key.startsWith('/')) {
+      return err('validation', 'Key file tidak valid.')
+    }
+    try {
+      const obj = await this.storage.get(key)
+      if (!obj) return err('not_found', 'File tidak ditemukan.')
+      // Serve only image content — the upload whitelist guarantees this,
+      // but re-assert at the read boundary for defense in depth.
+      const ct = obj.contentType ?? 'application/octet-stream'
+      if (!ct.startsWith('image/')) {
+        return err('validation', 'Key file tidak valid.')
+      }
+      return ok(obj)
+    } catch {
+      return err('validation', 'Key file tidak valid.')
+    }
   }
 }

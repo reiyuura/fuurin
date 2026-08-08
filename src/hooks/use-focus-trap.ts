@@ -23,9 +23,12 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
 
     const previouslyFocused = document.activeElement as HTMLElement | null
 
-    // Initial focus: first focusable, else the container.
+    // Initial focus: an element marked [data-autofocus] wins; otherwise
+    // the first focusable (which is the CANCEL button in confirm
+    // dialogs — making Enter cancel instead of confirm), else container.
+    const preferred = container.querySelector<HTMLElement>('[data-autofocus]')
     const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE))
-    ;(focusables[0] ?? container).focus()
+    ;(preferred ?? focusables[0] ?? container).focus()
 
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Tab' || !container) return

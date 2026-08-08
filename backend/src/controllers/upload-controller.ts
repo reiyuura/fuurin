@@ -29,5 +29,26 @@ export function createUploadController(uploadService: UploadService) {
 
       return reply.status(201).send(result.value)
     },
+
+    /**
+     * GET /uploads/* — public file serving. Keys are random-prefixed and
+     * traversal-proof (storage layer); content is image-only by the
+     * upload whitelist + a read-boundary re-check.
+     */
+    async serve(request: FastifyRequest, reply: FastifyReply) {
+      const key = (request.params as Record<string, string>)['*'] ?? ''
+      const result = await uploadService.getObject(key)
+      if (!result.ok) {
+        throw new ApiError(result.error.code, result.error.message)
+      }
+      const obj = result.value
+      return reply
+        .header('content-type', obj.contentType ?? 'application/octet-stream')
+        .header('content-length', String(obj.sizeBytes))
+        // Random-prefixed keys are immutable — cache hard.
+        .header('cache-control', 'public, max-age=31536000, immutable')
+        .header('x-content-type-options', 'nosniff')
+        .send(obj.data)
+    },
   }
 }

@@ -63,7 +63,7 @@ export default function DraftsPage() {
       fetchDrafts()
       router.refresh()
     } else {
-      toast('error', 'Gagal menerbitkan draft.')
+      toast('error', `Gagal menerbitkan draft: ${res.error.message}`)
     }
   }
 
@@ -75,7 +75,7 @@ export default function DraftsPage() {
       toast('success', 'Draft diarsipkan.')
       fetchDrafts()
     } else {
-      toast('error', 'Gagal mengarsipkan draft.')
+      toast('error', `Gagal mengarsipkan draft: ${res.error.message}`)
     }
   }
 
@@ -87,7 +87,7 @@ export default function DraftsPage() {
       toast('success', 'Draft dihapus.')
       fetchDrafts()
     } else {
-      toast('error', 'Gagal menghapus draft.')
+      toast('error', `Gagal menghapus draft: ${res.error.message}`)
     }
   }
 

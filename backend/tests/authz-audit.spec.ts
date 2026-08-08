@@ -190,7 +190,9 @@ describe('Refresh rotation', () => {
       headers: { 'content-type': 'application/json' },
       payload: JSON.stringify({ email: 'admin@test.local', password: 'pass' }),
     })
-    const oldCookie = (loginR.headers['set-cookie'] as string)?.match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
+    const rawSetCookie = loginR.headers['set-cookie']
+    const cookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join('; ') : String(rawSetCookie ?? '')
+    const oldCookie = cookieHeader.match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
 
     // First rotation succeeds.
     const rot1 = await app.inject({

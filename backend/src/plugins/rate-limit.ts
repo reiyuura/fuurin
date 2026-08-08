@@ -42,7 +42,8 @@ export function rateLimit(opts: RateLimitOptions & { enabled?: boolean }) {
     }
     w.count++
     if (w.count > opts.max) {
-      throw new ApiError('transport', 'Terlalu banyak percobaan. Coba lagi nanti.', undefined, {
+      const waitSec = Math.max(1, Math.ceil((w.resetAt - now) / 1000))
+      throw new ApiError('transport', `Terlalu banyak percobaan. Coba lagi dalam ${waitSec} detik.`, undefined, {
         status: 429,
       })
     }
@@ -53,15 +54,21 @@ export function configureRateLimits(app: FastifyInstance, env: Env): void {
   // Disabled in test runs — suites issue many auth calls per second.
   const enabled = env.NODE_ENV !== 'test'
   const authLimit = rateLimit({ max: 10, windowMs: 60_000, enabled }) // 10/min per IP
+  // Refresh runs on every full page load by design (in-memory access
+  // tokens) — 10/min would lock out legitimate browsing. It still
+  // requires a valid HttpOnly refresh token, so a higher cap is safe.
+  const refreshLimit = rateLimit({ max: 60, windowMs: 60_000, enabled }) // 60/min per IP
   const uploadLimit = rateLimit({ max: 30, windowMs: 60_000, enabled }) // 30/min per IP
 
   app.decorate('rateLimitAuth', authLimit)
+  app.decorate('rateLimitRefresh', refreshLimit)
   app.decorate('rateLimitUpload', uploadLimit)
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     rateLimitAuth: (request: FastifyRequest) => Promise<void>
+    rateLimitRefresh: (request: FastifyRequest) => Promise<void>
     rateLimitUpload: (request: FastifyRequest) => Promise<void>
   }
 }

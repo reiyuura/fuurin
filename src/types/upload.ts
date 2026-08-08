@@ -48,6 +48,8 @@ export interface UploadItem {
   error?: string
   /** When the user cancelled or removed — useful for status badges. */
   finishedAt?: number
+  /** Server URL after a successful real upload (fetch mode only). */
+  remoteUrl?: string
 }
 
 /** Validation issue produced by `validateFile`. */

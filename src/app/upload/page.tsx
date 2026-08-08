@@ -14,7 +14,7 @@ export default function UploadPage() {
       <main className="w-full mx-auto max-w-[1400px] px-4 pb-16 pt-5 sm:px-6 sm:pt-24 md:pb-20 lg:px-8">
         <PageHeader
           title="Upload"
-          lead="Tarik foto ke sini, atau pilih dari perangkat. Mock pipeline — backend menyusul."
+          lead="Tarik foto ke sini, atau pilih dari perangkat. File terunggah ke Media Library."
         />
 
         <section className="mt-6 sm:mt-10">

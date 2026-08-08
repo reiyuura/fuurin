@@ -39,3 +39,7 @@ export default async function MediaPage() {
     </>
   )
 }
+
+// Data-driven page — render per request so freshly-created albums/
+// photos appear immediately (static prerender would freeze at build time).
+export const dynamic = "force-dynamic"

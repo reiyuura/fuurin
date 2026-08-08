@@ -170,10 +170,16 @@ export class PrismaWriteRepository
 
   /* ── Media / Photo ─────────────────────────────────────────── */
 
+  /** Keep Album.count in sync with the real photo rows (same tx). */
+  private async syncAlbumCount(tx: Prisma.TransactionClient, albumSlug: string): Promise<void> {
+    const count = await tx.photo.count({ where: { albumSlug } })
+    await tx.album.update({ where: { slug: albumSlug }, data: { count } })
+  }
+
   async createPhoto(input: CreateMediaWriteInput): Promise<Result<MediaItem>> {
     try {
-      const row = await this.prisma.$transaction((tx) =>
-        tx.photo.create({
+      const row = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.photo.create({
           data: {
             albumSlug: input.albumSlug,
             idx: input.idx,
@@ -185,8 +191,10 @@ export class PrismaWriteRepository
             orientation: input.orientation,
             date: input.date,
           },
-        }),
-      )
+        })
+        await this.syncAlbumCount(tx, input.albumSlug)
+        return created
+      })
       return ok(toMediaItem(row))
     } catch (e) {
       // FK violation (album missing) → P2003.
@@ -218,9 +226,10 @@ export class PrismaWriteRepository
 
   async deletePhoto(albumSlug: string, idx: number): Promise<Result<void>> {
     try {
-      await this.prisma.$transaction((tx) =>
-        tx.photo.delete({ where: { albumSlug_idx: { albumSlug, idx } } }),
-      )
+      await this.prisma.$transaction(async (tx) => {
+        await tx.photo.delete({ where: { albumSlug_idx: { albumSlug, idx } } })
+        await this.syncAlbumCount(tx, albumSlug)
+      })
       return ok(undefined)
     } catch (e) {
       return mapWriteError(e, 'Photo')
@@ -233,6 +242,7 @@ export class PrismaWriteRepository
     try {
       let count = 0
       await this.prisma.$transaction(async (tx) => {
+        const touchedAlbums = new Set<string>()
         for (const id of ids) {
           const colon = id.lastIndexOf(':')
           if (colon < 0) continue
@@ -240,7 +250,11 @@ export class PrismaWriteRepository
           const idx = Number(id.slice(colon + 1))
           if (!Number.isInteger(idx)) continue
           await tx.photo.delete({ where: { albumSlug_idx: { albumSlug, idx } } })
+          touchedAlbums.add(albumSlug)
           count++
+        }
+        for (const albumSlug of touchedAlbums) {
+          await this.syncAlbumCount(tx, albumSlug)
         }
       })
       return ok(count)

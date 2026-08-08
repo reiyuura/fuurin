@@ -2,11 +2,12 @@
 
 /**
  * useUploadWorker — Feature-layer hook that owns the upload queue,
- * timers, and per-file mock upload lifecycle.
+ * timers, and per-file upload lifecycle.
  *
- * Browser APIs (URL.createObjectURL, setInterval, Image) are intentionally
- * confined to this file. Business utils stay pure; the worker handles
- * every side effect.
+ * Fetch mode (production): real multipart upload via FetchUploadRepository
+ * (POST /uploads). Mock mode (offline dev): the deterministic simulated
+ * pipeline. Browser APIs (URL.createObjectURL, setInterval, Image) are
+ * intentionally confined to this file. Business utils stay pure.
  */
 
 import {
@@ -19,12 +20,54 @@ import {
 import type { UploadItem, UploadOptions } from '@/types/upload'
 import { UPLOAD_DEFAULTS } from '@/types/upload'
 import { hashFile, readImageDimensions, uploadId } from '@/lib/upload-utils'
+import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
+import { getEnvironment } from '@/lib/config/env'
 
-/* ── Mock upload (deterministic, abortable) ────────────────────── */
+/* ── Upload handles (mock + real share the lifecycle shape) ────── */
 
 interface MockHandle {
-  promise: Promise<void>
+  /** Resolves with the server URL for real uploads, void for mock. */
+  promise: Promise<string | void>
   cancel: () => void
+}
+
+/**
+ * Real upload wrapped in the mock handle's lifecycle shape.
+ * fetch() has no upload-progress events — ease toward 90% while in
+ * flight and only report 100% after the server confirms (no fake
+ * completion).
+ */
+function createRealUpload(opts: {
+  file: File
+  onProgress: (pct: number) => void
+  signal: { cancelled: boolean }
+}): MockHandle {
+  const ctl = new AbortController()
+  let pct = 5
+  const ramp = setInterval(() => {
+    if (opts.signal.cancelled) return
+    pct = Math.min(90, pct + 7)
+    opts.onProgress(pct)
+  }, 180)
+
+  const promise: Promise<string | void> = (async () => {
+    const repo = new FetchUploadRepository(getApiClient())
+    const res = await repo.upload(opts.file, ctl.signal)
+    if (opts.signal.cancelled) throw new Error('Upload dibatalkan')
+    if (!res.ok) throw new Error(res.error.message)
+    opts.onProgress(100)
+    return res.data.url
+  })().finally(() => clearInterval(ramp))
+
+  return {
+    promise,
+    cancel: () => {
+      opts.signal.cancelled = true
+      ctl.abort()
+      clearInterval(ramp)
+    },
+  }
 }
 
 function createMockUpload(opts: {
@@ -128,6 +171,11 @@ export function useUploadWorker(options: UploadOptions = {}) {
   // Track active workers + per-item abort signals (RefMap — no re-renders).
   const activeHandles = useRef(new Map<string, { cancel: () => void; signal: { cancelled: boolean } }>())
 
+  // Real uploads need the File itself — UploadItem deliberately carries
+  // only plain fields, so files live in this side map keyed by item id.
+  const filesRef = useRef(new Map<string, File>())
+  const isFetchMode = getEnvironment().apiMode === 'fetch'
+
   // Track every generated object URL independently from render state.
   // Add/remove flows own the set; unmount cleanup therefore sees the
   // latest URLs without reading or mutating a ref during render.
@@ -172,7 +220,11 @@ export function useUploadWorker(options: UploadOptions = {}) {
           previewUrl,
         })
       }
-      for (const item of newItems) dispatch({ type: 'add', item })
+      for (const item of newItems) {
+        const file = list.find((f) => uploadId(f) === item.id)
+        if (file) filesRef.current.set(item.id, file)
+        dispatch({ type: 'add', item })
+      }
 
       // 2. For each validating item: read hash + dims, then move to 'ready'.
       await Promise.all(
@@ -226,22 +278,34 @@ export function useUploadWorker(options: UploadOptions = {}) {
       dispatch({ type: 'update', id: item.id, patch: { status: 'uploading', progress: 0 } })
 
       const signal = { cancelled: false }
-      const handle = createMockUpload({
-        totalMs: opts.mockSpeedMs,
-        tickMs: opts.progressTickMs,
-        onProgress: (pct) => dispatch({ type: 'update', id: item.id, patch: { progress: pct } }),
-        signal,
-      })
+      const onProgress = (pct: number) =>
+        dispatch({ type: 'update', id: item.id, patch: { progress: pct } })
+      const realFile = filesRef.current.get(item.id)
+      const handle =
+        isFetchMode && realFile
+          ? createRealUpload({ file: realFile, onProgress, signal })
+          : createMockUpload({
+              totalMs: opts.mockSpeedMs,
+              tickMs: opts.progressTickMs,
+              onProgress,
+              signal,
+            })
 
       activeHandles.current.set(item.id, { cancel: handle.cancel, signal })
 
       handle.promise
-        .then(() => {
+        .then((remoteUrl) => {
           activeHandles.current.delete(item.id)
+          if (signal.cancelled) return // cancel() already handled the state
           dispatch({
             type: 'update',
             id: item.id,
-            patch: { status: 'completed', progress: 100, finishedAt: Date.now() },
+            patch: {
+              status: 'completed',
+              progress: 100,
+              finishedAt: Date.now(),
+              ...(typeof remoteUrl === 'string' ? { remoteUrl } : {}),
+            },
           })
         })
         .catch((err: Error) => {
@@ -259,7 +323,7 @@ export function useUploadWorker(options: UploadOptions = {}) {
         })
     }
     // Re-run whenever items mutate so additional uploads start as slots open.
-  }, [state.items, opts.maxConcurrent, opts.mockSpeedMs, opts.progressTickMs])
+  }, [state.items, opts.maxConcurrent, opts.mockSpeedMs, opts.progressTickMs, isFetchMode])
 
   /* ── Public actions ──────────────────────────────────────── */
 
@@ -277,6 +341,7 @@ export function useUploadWorker(options: UploadOptions = {}) {
     const handle = activeHandles.current.get(id)
     if (handle) handle.cancel()
     activeHandles.current.delete(id)
+    filesRef.current.delete(id)
     const item = state.items.find((it) => it.id === id)
     if (item) {
       try {
@@ -310,6 +375,7 @@ export function useUploadWorker(options: UploadOptions = {}) {
       handle.cancel()
       activeHandles.current.delete(id)
     }
+    filesRef.current.clear()
     for (const it of state.items) {
       try {
         URL.revokeObjectURL(it.previewUrl)

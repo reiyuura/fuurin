@@ -19,7 +19,7 @@ export async function registerAuthRoutes(
 
   /* ── Auth ─────────────────────────────────────────────────── */
   app.post('/auth/login', { preHandler: [app.rateLimitAuth] }, c.login)
-  app.post('/auth/refresh', { preHandler: [app.rateLimitAuth] }, c.refresh)
+  app.post('/auth/refresh', { preHandler: [app.rateLimitRefresh] }, c.refresh)
   app.post('/auth/logout', c.logout)
 
   /* ── Users ────────────────────────────────────────────────── */

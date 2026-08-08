@@ -10,6 +10,8 @@ import { buildTagOptions } from '@/lib/album-utils'
 import { filterPhotos, sortPhotos, type PhotoFilter, type PhotoSortKey } from '@/lib/search-utils'
 import { useFavorites } from '@/lib/favorites'
 import { useLocale } from '@/lib/i18n'
+import { useSession } from '@/components/auth/session-provider'
+import { canEditAlbums } from '@/lib/auth/permissions'
 import { AlbumFilter } from '@/components/ui/album-filter'
 import { AlbumGrid } from '@/components/ui/album-grid'
 import { PhotoGrid, type PhotoGridItem } from '@/components/ui/photo-grid'
@@ -38,6 +40,8 @@ export function AlbumDetail({ album, photos, related }: AlbumDetailProps) {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useSession()
+  const showEdit = canEditAlbums(user)
   const { isFavorite } = useFavorites()
 
   /* ── URL state ─────────────────────────────────────────────── */
@@ -238,13 +242,17 @@ export function AlbumDetail({ album, photos, related }: AlbumDetailProps) {
                 </option>
               ))}
             </select>
-            <Link
-              href={`/editor/albums/${album.slug}`}
-              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground-strong transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              aria-label={`Edit album ${pick(album.title, locale)}`}
-            >
-              <Pencil size={12} aria-hidden="true" /> Edit
-            </Link>
+            {/* Editor shortcut — only for roles that can actually edit
+                (guests/viewer used to see it and bounced off the login gate). */}
+            {showEdit && (
+              <Link
+                href={`/editor/albums/${album.slug}`}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground-strong transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label={`Edit album ${pick(album.title, locale)}`}
+              >
+                <Pencil size={12} aria-hidden="true" /> Edit
+              </Link>
+            )}
           </div>
         </div>
 

@@ -90,10 +90,15 @@ describe('POST /auth/login', () => {
     expect(body.user.role).toBe('admin')
     expect(typeof body.accessToken).toBe('string')
     expect(body.accessToken.length).toBeGreaterThan(20)
-    // Refresh cookie set.
+    // Refresh cookie set. (Multiple Set-Cookie headers arrive as an
+    // array — join before asserting on contents.)
     const setCookie = res.headers['set-cookie']
     expect(setCookie).toBeDefined()
-    expect(setCookie).toContain('fuurin_rt')
+    const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie)
+    expect(cookieStr).toContain('fuurin_rt')
+    // Session-hint cookie set (non-HttpOnly — the frontend reads it to
+    // decide whether a refresh attempt is worthwhile).
+    expect(cookieStr).toContain('fuurin_has_session=1')
   })
 
   it('returns 401 on wrong password', async () => {
@@ -126,8 +131,9 @@ describe('POST /auth/refresh', () => {
     const loginRes = await post('/auth/login', {
       email: 'rei@fuurin.id', password: 'rei12345',
     })
-    const refreshCookie = (loginRes.headers['set-cookie'] as string)
-      .match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
+    const rawSetCookie = loginRes.headers['set-cookie']
+    const cookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join('; ') : String(rawSetCookie)
+    const refreshCookie = cookieHeader.match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
@@ -162,9 +168,13 @@ describe('POST /auth/logout', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ ok: true })
-    // Verify cookie cleared.
+    // Verify both cookies cleared (array when multiple Set-Cookie).
     const setCookie = res.headers['set-cookie']
-    if (setCookie) expect(setCookie).toContain('fuurin_rt=;')
+    if (setCookie) {
+      const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie)
+      expect(cookieStr).toContain('fuurin_rt=;')
+      expect(cookieStr).toContain('fuurin_has_session=;')
+    }
   })
 })
 

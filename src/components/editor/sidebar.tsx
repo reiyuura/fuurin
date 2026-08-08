@@ -10,23 +10,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { Album, Image, LayoutDashboard, Menu, Trash2, Users, X } from 'lucide-react'
+import { Album, FileText, Image, LayoutDashboard, Menu, X } from 'lucide-react'
 import { useSession } from '@/components/auth/session-provider'
 import clsx from 'clsx'
 
 const links = [
   { href: '/editor', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/editor/albums', icon: Album, label: 'Albums' },
+  { href: '/editor/drafts', icon: FileText, label: 'Drafts' },
   { href: '/editor/media', icon: Image, label: 'Media' },
-  { href: '/editor/members', icon: Users, label: 'Members' },
 ]
 
 export function EditorSidebar() {
   const pathname = usePathname()
   const { user } = useSession()
   const [open, setOpen] = useState(false)
-
-  const isAdmin = user?.role === 'admin'
 
   return (
     <>
@@ -78,22 +76,6 @@ export function EditorSidebar() {
             )
           })}
         </nav>
-
-        {/* Footer — admin only */}
-        {isAdmin && (
-          <div className="border-t border-border p-3">
-            <p className="px-3 text-[10px] font-bold uppercase tracking-[.14em] text-subtle-foreground mb-2">
-              Admin
-            </p>
-            <Link
-              href="/editor/trash"
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-hover transition"
-            >
-              <Trash2 size={16} aria-hidden="true" />
-              Trash
-            </Link>
-          </div>
-        )}
 
         {/* Footer user */}
         <div className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">

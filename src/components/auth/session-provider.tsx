@@ -64,6 +64,18 @@ export function SessionProvider({ children }: SessionProviderProps) {
         .catch(() => setStatus('guest'))
       return
     }
+    // Session-hint cookie (non-HttpOnly, set by the backend at
+    // login/refresh): without it there is nothing to restore, so skip
+    // the refresh call entirely. This keeps guests from firing
+    // POST /auth/refresh on every page load and burning the shared
+    // auth rate-limit bucket.
+    const hasHint =
+      typeof document !== 'undefined' &&
+      document.cookie.split(';').some((c) => c.trim().startsWith('fuurin_has_session='))
+    if (!hasHint) {
+      setStatus('guest')
+      return
+    }
     const repo = new FetchAuthRepository(getApiClient())
     repo.refresh().then((refreshRes) => {
       if (!refreshRes.ok) { setStatus('guest'); return }

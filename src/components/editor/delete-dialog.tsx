@@ -69,6 +69,9 @@ export function DeleteAlbumButton({ slug, title }: Props) {
               <button
                 onClick={handleDelete}
                 disabled={loading}
+                // The dialog IS the confirmation step — Enter must mean
+                // "confirm", not "cancel" (focus used to land on Batal).
+                data-autofocus
                 className="rounded-xl bg-error px-4 py-2 text-[13px] font-medium text-white transition hover:bg-error/90 disabled:opacity-50"
               >
                 {loading ? 'Menghapus...' : 'Hapus'}

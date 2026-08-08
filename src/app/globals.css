@@ -75,6 +75,18 @@
   --color-hover: #fff1f4;
   --color-ring: #c87c8d;
 
+  /* ---- Error / destructive — referenced by bg-error, text-error,
+     border-error, bg-error/5, hover:bg-error/90, bg-destructive,
+     text-destructive, ring-destructive/50, bg-destructive/10.
+     Without these tokens Tailwind emits NO CSS for those utilities,
+     leaving e.g. the delete-confirm button invisible (transparent bg,
+     white text on a light card). `destructive` aliases `error`. ---- */
+  --color-error: #d75a5a;
+  --color-error-foreground: #fffdfa;
+  --color-error-subtle: #fbecec;
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-error-foreground);
+
   /* ---- Shadows ---- */
   --shadow-paper: 0 1px 3px rgba(120, 88, 76, 0.06), 0 6px 18px rgba(120, 88, 76, 0.08);
   --shadow-paper-lift: 0 3px 8px rgba(120, 88, 76, 0.09), 0 18px 42px rgba(160, 104, 96, 0.14);
@@ -132,6 +144,12 @@
 
   --color-hover: #fff1f4;
   --color-ring: #c87c8d;
+
+  --color-error: #d75a5a;
+  --color-error-foreground: #fffdfa;
+  --color-error-subtle: #fbecec;
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-error-foreground);
 }
 
 /* ---------------------------------------------------------------------------
@@ -173,6 +191,12 @@
 
   --color-hover: #342f2d;
   --color-ring: #d99aa8;
+
+  --color-error: #e07070;
+  --color-error-foreground: #241f1e;
+  --color-error-subtle: #3d2a2a;
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-error-foreground);
 
   --shadow-paper: 0 1px 3px rgba(0, 0, 0, 0.24), 0 6px 18px rgba(0, 0, 0, 0.28);
   --shadow-paper-lift: 0 3px 8px rgba(0, 0, 0, 0.30), 0 18px 42px rgba(0, 0, 0, 0.36);

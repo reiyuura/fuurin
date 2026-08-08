@@ -8,10 +8,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Loader2, Upload } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { getEnvironment } from '@/lib/config/env'
 import { useToast } from '@/components/ui/toast'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useAuthReady } from '@/hooks/use-auth-ready'
 import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
 import clsx from 'clsx'
+
+/** Upload responses return a RELATIVE url (/api/v1/uploads/<key>) — the
+ *  draft schema requires an absolute URL, so prefix the API origin. */
+function absolutize(url: string): string {
+  if (!url || url.startsWith('http')) return url
+  return `${new URL(getEnvironment().apiBaseUrl).origin}${url}`
+}
 
 type DraftData = {
   slug: string; title: string; description?: string; date?: string; cover?: string; visibility: string
@@ -37,8 +46,12 @@ export default function EditDraftPage() {
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSaved = useRef<Record<string, unknown>>({})
 
-  // Load draft.
+  const authReady = useAuthReady()
+
+  // Load draft — only after the session has been restored, otherwise
+  // the first request fires without a token and dies as a 401.
   useEffect(() => {
+    if (!authReady) return
     const client = getApiClient()
     client.request<DraftData>({ method: 'GET', path: `/drafts/${slug}` }).then((res) => {
       if (res.ok) {
@@ -47,44 +60,64 @@ export default function EditDraftPage() {
         setDescription(res.data.description ?? '')
         setDate(res.data.date ?? '')
         setCoverUrl(res.data.cover ?? '')
-        lastSaved.current = { title: res.data.title, description: res.data.description, date: res.data.date, cover: res.data.cover }
+        // Normalize undefined → '' so the first hasChanges() comparison
+        // against the (string-defaulted) state doesn't misfire.
+        lastSaved.current = {
+          title: res.data.title,
+          description: res.data.description ?? '',
+          date: res.data.date ?? '',
+          cover: res.data.cover ?? '',
+        }
       }
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [slug])
+  }, [slug, authReady])
 
+  // Compare against the LAST SAVED snapshot (not the originally loaded
+  // draft) — otherwise the page stays "dirty" forever after a save and
+  // beforeunload nags even when everything is persisted.
   const hasChanges = useCallback(() => {
-    const curr = JSON.stringify({ title, description, date, coverUrl })
-    return curr !== JSON.stringify({ title: draft?.title, description: draft?.description, date: draft?.date, cover: draft?.cover })
-  }, [title, description, date, coverUrl, draft])
+    const curr = JSON.stringify({ title, description, date, cover: coverUrl })
+    return curr !== JSON.stringify(lastSaved.current)
+  }, [title, description, date, coverUrl])
+
+  /** The single save path — used by the debounce AND by Ctrl+S. */
+  const saveNow = useCallback(async () => {
+    if (!draft) return
+    setAutosaveStatus('saving')
+    try {
+      const client = getApiClient()
+      const res = await client.request({
+        method: 'PATCH', path: `/drafts/${slug}`,
+        body: { title, description, date, cover: coverUrl || undefined },
+      })
+      if (res.ok) {
+        lastSaved.current = { title, description, date, cover: coverUrl }
+        setAutosaveStatus('saved')
+        setTimeout(() => setAutosaveStatus('idle'), 1500)
+      } else {
+        setAutosaveStatus('error')
+        toast('error', `Gagal menyimpan: ${res.error.message}`)
+      }
+    } catch {
+      setAutosaveStatus('error')
+    }
+  }, [draft, slug, title, description, date, coverUrl, toast])
 
   // Autosave — debounce 2s.
   useEffect(() => {
     if (!draft || !hasChanges()) return
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
-    autosaveTimer.current = setTimeout(async () => {
-      setAutosaveStatus('saving')
-      try {
-        const client = getApiClient()
-        const res = await client.request({
-          method: 'PATCH', path: `/drafts/${slug}`,
-          body: { title, description, date, cover: coverUrl || undefined },
-        })
-        if (res.ok) { setAutosaveStatus('saved'); setTimeout(() => setAutosaveStatus('idle'), 1500) }
-        else setAutosaveStatus('error')
-      } catch { setAutosaveStatus('error') }
-    }, 2000)
+    autosaveTimer.current = setTimeout(saveNow, 2000)
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }
-  }, [title, description, date, coverUrl, slug, draft, hasChanges])
+  }, [saveNow, draft, hasChanges])
 
   // Keyboard shortcuts: Ctrl+S force-save now, Ctrl+P scroll to preview.
   useKeyboardShortcut({
     onSave: () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
-      // Trigger immediate save by toggling status; the autosave effect
-      // will re-run on the next keystroke. Show feedback instead.
-      toast('info', 'Menyimpan manual...')
-      setAutosaveStatus('saving')
+      if (!hasChanges()) return
+      void saveNow() // a REAL immediate save, not just a status toggle
     },
     onPreview: () => {
       document.querySelector('[aria-label="Preview"]')?.scrollIntoView({ behavior: 'smooth' })
@@ -103,7 +136,13 @@ export default function EditDraftPage() {
     setUploadingCover(true)
     const repo = new FetchUploadRepository(getApiClient())
     const res = await repo.upload(coverFile)
-    if (res.ok) setCoverUrl(res.data.url)
+    if (res.ok) {
+      // Absolute URL required by the draft schema (z.string().url()).
+      setCoverUrl(absolutize(res.data.url))
+      setCoverFile(null)
+    } else {
+      toast('error', `Gagal mengunggah cover: ${res.error.message}`)
+    }
     setUploadingCover(false)
   }
 
@@ -119,8 +158,13 @@ export default function EditDraftPage() {
           </p>
         </div>
         <button onClick={async () => {
-          await getApiClient().request({ method: 'POST', path: `/drafts/${slug}/publish` })
-          router.push('/editor/drafts'); router.refresh()
+          const res = await getApiClient().request({ method: 'POST', path: `/drafts/${slug}/publish` })
+          if (res.ok) {
+            toast('success', 'Draft diterbitkan.')
+            router.push('/editor/drafts'); router.refresh()
+          } else {
+            toast('error', `Gagal menerbitkan: ${res.error.message}`)
+          }
         }} className="rounded-xl bg-[#7A9E7E] px-4 py-2 text-sm font-medium text-white hover:bg-[#7A9E7E]/90">Terbitkan</button>
       </div>
 
@@ -151,7 +195,7 @@ export default function EditDraftPage() {
             <><Upload size={20} className="text-muted-foreground" /><span className="text-[11px] text-muted-foreground">Ganti cover</span></>}
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCoverFile(f); setCoverPreview(URL.createObjectURL(f)) } }} className="hidden" />
         </label>
-        {coverFile && !uploadingCover && !coverUrl.startsWith('https') && (
+        {coverFile && !uploadingCover && (
           <button onClick={handleUploadCover} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white">
             <Upload size={14} />Unggah
           </button>

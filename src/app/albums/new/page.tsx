@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { TabBar } from '@/components/layout/tab-bar'
@@ -6,6 +7,7 @@ import { ProtectedShell } from '@/components/auth/protected-shell'
 import { AlbumEditor } from '@/components/editor/album-editor'
 import { PhotoGrid } from '@/components/ui/photo-grid'
 import { repositories } from '@/lib/repositories/repository-registry'
+import { getEnvironment } from '@/lib/config/env'
 import type { AlbumDraft } from '@/types/album-editor'
 import { Permissions } from '@/types/auth'
 
@@ -25,6 +27,10 @@ function emptyDraft(): AlbumDraft {
 }
 
 export default async function NewAlbumPage() {
+  // This page is the mock-mode editor. In fetch mode the draft write API
+  // lives behind /editor/* — sending users here would dead-end every
+  // save with an "unsupported" error.
+  if (getEnvironment().apiMode === 'fetch') redirect('/editor/albums/new')
   const mediaRes = await repositories.media.list()
   const mediaItems = mediaRes.ok ? mediaRes.value : []
   const initial = emptyDraft()

@@ -212,3 +212,50 @@ describe('POST /uploads', () => {
     expect(res.statusCode).toBe(401)
   })
 })
+
+describe('GET /uploads/* (public serving)', () => {
+  async function uploadOne(): Promise<{ url: string; bytes: Buffer }> {
+    const boundary = '----ServeBoundary'
+    const buf = jpegBuf()
+    const pre = Buffer.from(
+      [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="file"; filename="serve.jpg"',
+        'Content-Type: image/jpeg',
+        '',
+        '',
+      ].join('\r\n'),
+      'utf-8',
+    )
+    const post = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8')
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/uploads',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        authorization: `Bearer ${adminToken}`,
+      },
+      payload: Buffer.concat([pre, buf, post]),
+    })
+    expect(res.statusCode).toBe(201)
+    return { url: res.json().url as string, bytes: buf }
+  }
+
+  it('serves an uploaded file publicly with image content-type', async () => {
+    const { url, bytes } = await uploadOne()
+    const res = await app.inject({ method: 'GET', url }) // no auth header
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['content-type']).toBe('image/jpeg')
+    expect(res.headers['cache-control']).toContain('immutable')
+    expect(res.rawPayload.equals(bytes)).toBe(true)
+  })
+
+  it('returns 404 for a missing key', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/uploads/uploads/does-not-exist.jpg' })
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('rejects traversal attempts', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/uploads/..%2F..%2Fsrc%2Fserver.ts' })
+    expect([400, 404]).toContain(res.statusCode)
+  })
+})

@@ -149,7 +149,9 @@ describe('Refresh rotation — race', () => {
       headers: { 'content-type': 'application/json' },
       payload: JSON.stringify({ email: 'admin@test.local', password: 'pass' }),
     })
-    const rt = (loginR.headers['set-cookie'] as string)?.match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
+    const rawSetCookie = loginR.headers['set-cookie']
+    const cookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join('; ') : String(rawSetCookie ?? '')
+    const rt = cookieHeader.match(/fuurin_rt=([^;]+)/)?.[1] ?? ''
     expect(rt).not.toBe('')
 
     // Two concurrent refreshes presenting the SAME refresh token.

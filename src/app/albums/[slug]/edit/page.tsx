@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
@@ -7,6 +7,7 @@ import { ProtectedShell } from '@/components/auth/protected-shell'
 import { AlbumEditor } from '@/components/editor/album-editor'
 import { PhotoGrid } from '@/components/ui/photo-grid'
 import { repositories } from '@/lib/repositories/repository-registry'
+import { getEnvironment } from '@/lib/config/env'
 import { Permissions } from '@/types/auth'
 
 type EditAlbumPageProps = {
@@ -15,6 +16,10 @@ type EditAlbumPageProps = {
 
 export default async function EditAlbumPage({ params }: EditAlbumPageProps) {
   const { slug } = await params
+  // Mock-mode editor — draft reads are unsupported by the fetch
+  // repositories, so this page would 404 in production. The fetch-mode
+  // editor lives under /editor/albums/[slug].
+  if (getEnvironment().apiMode === 'fetch') redirect(`/editor/albums/${slug}`)
   const draftRes = await repositories.albums.getDraft(slug)
   if (!draftRes.ok) notFound()
   const draft = draftRes.value

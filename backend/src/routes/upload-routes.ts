@@ -1,5 +1,6 @@
 /**
- * Upload routes — POST /uploads (multipart), protected.
+ * Upload routes — POST /uploads (multipart, protected),
+ * GET /uploads/* (public file serving).
  */
 
 import type { FastifyInstance } from 'fastify'
@@ -16,4 +17,7 @@ export async function registerUploadRoutes(
   app.post('/uploads', {
     preHandler: [app.rateLimitUpload, app.requireAuth, app.requireRole('admin', 'editor')],
   }, c.upload)
+
+  // Public: serve uploaded files (album photos are public content).
+  app.get('/uploads/*', c.serve)
 }

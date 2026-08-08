@@ -84,3 +84,7 @@ function TimelineList({ entries }: { entries: import('@/lib/data').TimelineEntry
     </ol>
   )
 }
+
+// Data-driven page — render per request so freshly-created albums/
+// photos appear immediately (static prerender would freeze at build time).
+export const dynamic = "force-dynamic"

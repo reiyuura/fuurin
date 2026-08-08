@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (interactive UI regression — 2026-08-08, Playwright-verified)
+
+- **Uploaded files were never served** — no route/static mapping existed
+  for `GET /api/v1/uploads/*`, so every uploaded photo rendered broken.
+  Added a public streaming route (image-only, traversal-proof,
+  immutable cache) + 3 tests.
+- **`/upload` workspace was a mock pipeline** — files never reached the
+  backend while the UI claimed success. Now performs real multipart
+  uploads with abort + honest progress (90% cap until the server
+  confirms).
+- **Uploads never became photos** — uploading stored bytes only, so
+  nothing appeared in albums or the media grid. Added
+  attach-after-upload: auto-attach when an album filter is active, a
+  "lampirkan ke album" banner otherwise, and an attach picker in
+  `/upload`. Deletion-safe `idx` assignment (max+1) and dedupe on
+  re-attach.
+- **Static public pages froze at build time** (`/`, `/albums`,
+  `/timeline`, `/media`) — newly created albums never appeared until a
+  rebuild. Now `force-dynamic`.
+- **`Album.count` never changed** after photo create/delete — synced
+  inside the same transaction.
+- **Image optimizer rejected our own origin** — `remotePatterns` now
+  includes the API host derived from `NEXT_PUBLIC_API_BASE_URL`
+  (uploaded photos + avatars render instead of 400).
+- **Delete-confirm button was invisible** — `bg-error`/`bg-destructive`
+  had no color tokens in `globals.css`, so the button rendered
+  transparent with white text. Added `error`/`destructive` tokens
+  (light + warm dark). Same root cause fixed pale error toasts and all
+  destructive buttons.
+- **Focus trap landed on "Batal"** in the delete dialog, so pressing
+  Enter cancelled instead of confirming — `[data-autofocus]` support
+  moves initial focus to the confirm button.
+- **Draft editor**: Ctrl+S never issued a request (status stuck at
+  "Menyimpan..."); cover upload poisoned autosave with a 400 (relative
+  URL vs `z.string().url()`); publish navigated away even on failure;
+  slug rename after first save caused permanent 404s (slug input now
+  locks post-create); dirty state never reset after a save.
+- **Editor shell had no role gate** (guests/viewers could open it);
+  sidebar linked to nonexistent `/editor/members` + `/editor/trash`
+  while `/editor/drafts` had no entry; editor album list silently
+  truncated at 20; legacy mock editor routes (`/albums/new`,
+  `/albums/[slug]/edit`) redirect to `/editor/*` in fetch mode; the
+  public album "Edit" button no longer shows for guests/viewers.
+- **429 rate-limit responses had no retry hint** — message now includes
+  the wait seconds.
+- **Guests burned the shared auth rate-limit bucket** —
+  `SessionProvider` called `/auth/refresh` on every page load. A
+  non-HttpOnly session-hint cookie now gates that call; refresh limit
+  split from login (60/min vs 10/min).
+
 ### Security
 
 - **Production no longer boots with the public dev JWT secret** — a

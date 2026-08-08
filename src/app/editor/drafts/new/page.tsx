@@ -9,10 +9,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Upload } from 'lucide-react'
 import { getApiClient } from '@/lib/repositories/api-client-provider'
+import { getEnvironment } from '@/lib/config/env'
 import { useToast } from '@/components/ui/toast'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import { FetchUploadRepository } from '@/lib/repositories/upload-repository'
 import clsx from 'clsx'
+
+/** Upload responses return a RELATIVE url — the draft schema requires
+ *  an absolute URL, so prefix the API origin before saving. */
+function absolutize(url: string): string {
+  if (!url || url.startsWith('http')) return url
+  return `${new URL(getEnvironment().apiBaseUrl).origin}${url}`
+}
 
 export default function NewDraftPage() {
   const router = useRouter()
@@ -56,50 +64,60 @@ export default function NewDraftPage() {
     setUploadingCover(true)
     const repo = new FetchUploadRepository(getApiClient())
     const res = await repo.upload(coverFile)
-    if (res.ok) setCoverUrl(res.data.url)
+    if (res.ok) {
+      // Absolute URL required by the draft schema (z.string().url()).
+      setCoverUrl(absolutize(res.data.url))
+      setCoverFile(null)
+    } else {
+      toast('error', `Gagal mengunggah cover: ${res.error.message}`)
+    }
     setUploadingCover(false)
   }
+
+  /** The single save path — used by the debounce AND by Ctrl+S. */
+  const saveNow = useCallback(async () => {
+    if (!title.trim()) return
+    setAutosaveStatus('saving')
+    try {
+      const client = getApiClient()
+      const path = draftSlug ? `/drafts/${draftSlug}` : '/drafts'
+      const method = draftSlug ? 'PATCH' : 'POST'
+      // NB: after creation the slug is server-side state — never send a
+      // renamed slug back (the PATCH would move the draft and every
+      // later save would 404). Slug edits are locked in the UI instead.
+      const body = draftSlug
+        ? { title, description, date, cover: coverUrl || undefined }
+        : { title, slug: slug || slugify(title), description, date, cover: coverUrl || undefined }
+
+      const res = await client.request({ method, path, body })
+      if (res.ok) {
+        if (!draftSlug && res.data) setDraftSlug((res.data as { slug: string }).slug)
+        lastSaved.current = JSON.stringify({ title, slug, description, date, coverUrl })
+        setAutosaveStatus('saved')
+        setTimeout(() => setAutosaveStatus('idle'), 1500)
+      } else {
+        setAutosaveStatus('error')
+        toast('error', `Gagal menyimpan: ${res.error.message}`)
+      }
+    } catch {
+      setAutosaveStatus('error')
+    }
+  }, [title, slug, description, date, coverUrl, draftSlug, toast])
 
   // Autosave — debounce 2s.
   useEffect(() => {
     if (!hasChanges()) return
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
-
-    autosaveTimer.current = setTimeout(async () => {
-      setAutosaveStatus('saving')
-      try {
-        const client = getApiClient()
-        const path = draftSlug ? `/drafts/${draftSlug}` : '/drafts'
-        const method = draftSlug ? 'PATCH' : 'POST'
-        const body = draftSlug
-          ? { title, slug, description, date, cover: coverUrl || undefined }
-          : { title, slug: slug || slugify(title), description, date, cover: coverUrl || undefined }
-
-        const res = await client.request({ method: method as 'POST' | 'PATCH', path, body })
-        if (res.ok) {
-          if (!draftSlug && res.data) setDraftSlug((res.data as { slug: string }).slug)
-          lastSaved.current = JSON.stringify({ title, slug, description, date, coverUrl })
-          setAutosaveStatus('saved')
-          setTimeout(() => setAutosaveStatus('idle'), 1500)
-        } else {
-          setAutosaveStatus('error')
-        }
-      } catch {
-        setAutosaveStatus('error')
-      }
-    }, 2000)
-
+    autosaveTimer.current = setTimeout(saveNow, 2000)
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }
-  }, [title, slug, description, date, coverUrl, draftSlug, hasChanges])
+  }, [saveNow, hasChanges])
 
   // Keyboard shortcuts: Ctrl+S force-save now, Ctrl+P scroll to preview.
   useKeyboardShortcut({
     onSave: () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
-      // Trigger immediate save by toggling status; the autosave effect
-      // will re-run on the next keystroke. Show feedback instead.
-      toast('info', 'Menyimpan manual...')
-      setAutosaveStatus('saving')
+      if (!hasChanges()) return
+      void saveNow() // a REAL immediate save, not just a status toggle
     },
     onPreview: () => {
       document.querySelector('[aria-label="Preview"]')?.scrollIntoView({ behavior: 'smooth' })
@@ -120,7 +138,12 @@ export default function NewDraftPage() {
     if (!draftSlug) return
     const client = getApiClient()
     const res = await client.request({ method: 'POST', path: `/drafts/${draftSlug}/publish` })
-    if (res.ok) { router.push('/editor/drafts'); router.refresh() }
+    if (res.ok) {
+      toast('success', 'Draft diterbitkan.')
+      router.push('/editor/drafts'); router.refresh()
+    } else {
+      toast('error', `Gagal menerbitkan: ${res.error.message}`)
+    }
   }
 
   return (
@@ -148,12 +171,16 @@ export default function NewDraftPage() {
           placeholder="Contoh: Hanami 2027" />
       </label>
 
-      {/* Slug */}
+      {/* Slug — locked once the draft exists server-side (renaming it
+          would orphan subsequent autosaves → permanent 404s). */}
       <label className="block">
         <span className="text-[13px] font-medium text-foreground-strong">Slug</span>
         <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+          disabled={!!draftSlug}
+          title={draftSlug ? 'Slug terkunci setelah draft dibuat' : undefined}
+          className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
           placeholder="hanami-2027" />
+        {draftSlug && <span className="mt-1 block text-[11px] text-muted-foreground">Slug terkunci setelah draft dibuat.</span>}
       </label>
 
       {/* Description */}
