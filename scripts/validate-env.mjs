@@ -1,10 +1,13 @@
 const env = process.env
 const nodeEnv = env.NODE_ENV ?? 'development'
-const mode = env.API_MODE ?? env.NEXT_PUBLIC_API_MODE ?? 'mock'
+const mode = env.API_MODE ?? env.NEXT_PUBLIC_API_MODE ?? (nodeEnv === 'production' ? 'fetch' : 'mock')
 const timeoutRaw = env.API_TIMEOUT ?? env.NEXT_PUBLIC_API_TIMEOUT_MS ?? '15000'
 const apiUrl = env.API_BASE_URL ?? env.NEXT_PUBLIC_API_BASE_URL ?? ''
 const siteUrl = env.SITE_URL ?? env.NEXT_PUBLIC_SITE_URL ?? 'https://fuurin.reiyuura.pw'
 const issues = []
+if (nodeEnv === 'production' && !env.API_MODE && !env.NEXT_PUBLIC_API_MODE) {
+  issues.push('API_MODE must be explicitly set in production')
+}
 
 if (!['mock', 'fetch'].includes(mode)) issues.push('API_MODE must be mock or fetch')
 const timeout = Number(timeoutRaw)

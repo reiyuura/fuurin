@@ -42,7 +42,7 @@ export function LoginForm({ onSubmit, pending, errorMessage, defaultEmail = '', 
           Masuk
         </h1>
         <p className="text-[12px] text-muted-foreground">
-          Gunakan akun mock untuk demo Sprint 12. Backend menyusul.
+          Masuk untuk melanjutkan ke ruang editor Fuurin.
         </p>
       </div>
 
@@ -131,15 +131,7 @@ export function LoginForm({ onSubmit, pending, errorMessage, defaultEmail = '', 
         </button>
       </div>
 
-      <div className="mt-5 rounded-[12px] border border-dashed border-border/70 bg-background/40 p-3">
-        <p className="text-[10.5px] font-bold uppercase tracking-[.14em] text-muted-foreground">
-          Akun demo
-        </p>
-        <ul className="mt-2 space-y-1 font-mono text-[11px] text-foreground-strong">
-          <li>rei@fuurin.id · rei12345 · admin</li>
-          <li>hana@fuurin.id · hana12345 · editor</li>
-        </ul>
-      </div>
+
     </form>
   )
 }

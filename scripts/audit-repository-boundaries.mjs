@@ -18,8 +18,14 @@ function walk(dir) {
   }
 }
 
+function stripComments(source) {
+  return source
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
 function inspect(file) {
-  const source = fs.readFileSync(file, 'utf8')
+  const source = stripComments(fs.readFileSync(file, 'utf8'))
   for (const rule of forbidden) {
     if (rule.re.test(source)) violations.push(`${file}: ${rule.label}`)
     rule.re.lastIndex = 0

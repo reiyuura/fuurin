@@ -10,8 +10,8 @@
   "scripts": {
     "dev": "next dev",
     "validate:env": "node scripts/validate-env.mjs",
-    "prebuild": "node scripts/validate-env.mjs",
-    "build": "next build",
+    "prebuild": "NODE_ENV=production node --env-file=.env.production scripts/validate-env.mjs",
+    "build": "NODE_ENV=production next build",
     "prestart": "NODE_ENV=production node scripts/validate-env.mjs",
     "start": "next start",
     "lint": "eslint",
