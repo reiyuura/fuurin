@@ -3,6 +3,8 @@ import { repositories } from '@/lib/repositories/repository-registry'
 import { getEnvironment } from '@/lib/config/env'
 import { monitoring } from '@/lib/monitoring/monitoring-provider'
 
+export const dynamic = 'force-dynamic'
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getEnvironment().siteUrl
   const staticRoutes: MetadataRoute.Sitemap = [
